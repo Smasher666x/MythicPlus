@@ -10,37 +10,37 @@ local MythicRewardConfig = {
 
 local MythicBosses = {
     [574] = { -- Utgarde Keep
-        bosses = {23953, 24200, 24201, 23954}, final = 23954, names = {"Prince Keleseth", "Skarvald the Constructor", "Dalronn the Controller", "Ingvar the Plunderer"}, timer = 1500},
+        bosses = {23953, 24200, 24201, 23954}, final = 23954, names = {"Prince Keleseth", "Skarvald the Constructor", "Dalronn the Controller", "Ingvar the Plunderer"}, timer = 1080},
     [575] = { -- Utgarde Pinnacle
         bosses = {26668, 26687, 26693, 26861}, final = 26861, names = {"Svala Sorrowgrave", "Gortok Palehoof", "Skadi the Ruthless", "King Ymiron"}, timer = 1500},
     [576] = { -- The Nexus
         bosses = {26731, 26763, 26794, 26723}, final = 26723, names = {"Grand Magus Telestra", "Anomalus", "Ormorok the Tree-Shaper", "Keristrasza"}, timer = 1500},
     [599] = { -- Halls of Stone
-        bosses = {27977, 27975, 27978}, final = 27978, names = {"Krystallus", "Maiden of Grief", "Sjonnir The Ironshaper"}, timer = 1500},
+        bosses = {27977, 27975, 27978}, final = 27978, names = {"Krystallus", "Maiden of Grief", "Sjonnir The Ironshaper"}, timer = 1800},
     [600] = { -- Drak'Tharon Keep
         bosses = {26630, 26631, 27483, 26632}, final = 26632, names = {"Trollgore", "Novos the Summoner", "King Dred", "The Prophet Tharon'ja"}, timer = 1500},
     [601] = { -- Azjol-Nerub
-        bosses = {28684, 28921, 29120}, final = 29120, names = {"Krik'thir the Gatewatcher", "Hadronox", "Anub'arak"}, timer = 1500},
+        bosses = {28684, 28921, 29120}, final = 29120, names = {"Krik'thir the Gatewatcher", "Hadronox", "Anub'arak"}, timer = 1800},
     [602] = { -- Halls of Lightning
-        bosses = {28586, 28587, 28546, 28923}, final = 28923, names = {"General Bjarngrim", "Volkhan", "Ionar", "Loken"}, timer = 1500},
+        bosses = {28586, 28587, 28546, 28923}, final = 28923, names = {"General Bjarngrim", "Volkhan", "Ionar", "Loken"}, timer = 1800},
     [604] = { -- Gundrak
         bosses = {29304, 29307, 29305, 29932, 29306}, final = 29306, names = {"Slad'ran", "Drakkari Colossus", "Moorabi", "Eck the Ferocious", "Gal'darah"}, timer = 1500},
     [608] = { -- The Violet Hold
         bosses = {31134}, final = 31134, names = {"Cyanigosa"}, timer = 1500},
     [619] = { -- Ahn'kahet: The Old Kingdom
-        bosses = {29309, 29308, 29310, 30258, 29311}, final = 29311, names = {"Elder Nadox", "Prince Taldaram", "Jedoga Shadowseeker", "Amanitar", "Herald Volazj"}, timer = 1500},
+        bosses = {29309, 29308, 29310, 30258, 29311}, final = 29311, names = {"Elder Nadox", "Prince Taldaram", "Jedoga Shadowseeker", "Amanitar", "Herald Volazj"}, timer = 1800},
     [578] = { -- The Oculus
         bosses = {27654, 27447, 27655, 27656}, final = 27656, names = {"Drakos the Interrogator", "Varos Cloudstrider", "Mage-Lord Urom", "Ley-Guardian Eregos"}, timer = 1500},
     [595] = { -- The Culling of Stratholme
         bosses = {26529, 26530, 26532, 32273, 26533}, final = 26533, names = {"Meathook", "Salramm the Fleshcrafter", "Chrono-Lord Epoch", "Infinite Corruptor", "Mal'Ganis"}, timer = 1500},
     [650] = { -- Trial of the Champion
-        bosses = {35451}, final = 35451, names = {"The Black Knight"}, timer = 1500},
+        bosses = {35451}, final = 35451, names = {"The Black Knight"}, timer = 960},
     [632] = { -- Forge of Souls
         bosses = {36497, 36502}, final = 36502, names = {"Bronjahm", "Devourer of Souls"}, timer = 1500},
     [658] = { -- Pit of Saron
-        bosses = {36494, 36476, 36477, 36658}, final = 36658, names = {"Forgemaster Garfrost", "Ick", "Krick", "Scourgelord Tyrannus"}, timer = 1500},
+        bosses = {36494, 36476, 36477, 36658}, final = 36658, names = {"Forgemaster Garfrost", "Ick", "Krick", "Scourgelord Tyrannus"}, timer = 1800},
     [668] = { -- Halls of Reflection
-        bosses = {38112, 38113, 36954}, final = 36954, names = {"Falric", "Marwyn", "The Lich King"}, timer = 1500}
+        bosses = {38112, 38113, 36954}, final = 36954, names = {"Falric", "Marwyn", "The Lich King"}, timer = 1800}
 }
 
 local DungeonNames = {
@@ -319,7 +319,7 @@ local function ApplyAuraToNearbyCreatures(player, affixes)
             and creature:IsAlive()
             and creature:IsInWorld()
             and not creature:IsPlayer()
-            and faction ~= 2 and faction ~= 3 and faction ~= 4 and faction ~= 14
+            and faction ~= 2 and faction ~= 3 and faction ~= 4
             and faction ~= 31 and faction ~= 35 and faction ~= 188 and faction ~= 1629
             and faction ~= 114 and faction ~= 115 and faction ~= 1
         then
@@ -337,10 +337,10 @@ end
 local function DowngradeKeystoneOnFail(player, tier)
     if tier == 3 then
         if not PlayerHasAnyKeystone(player) then player:AddItem(900101, 1) end
-        player:SendBroadcastMessage("|cffffff00[Mythic]|r Your key has been downgraded.")
+        player:SendBroadcastMessage("[Mythic+] Your key has been downgraded.")
     elseif tier == 2 then
         if not PlayerHasAnyKeystone(player) then player:AddItem(900100, 1) end
-        player:SendBroadcastMessage("|cffffff00[Mythic]|r Your key has been downgraded.")
+        player:SendBroadcastMessage("[Mythic+] Your key has been downgraded.")
     end
 end
 
@@ -406,7 +406,7 @@ local function StartAuraLoop(player, instanceId, mapId, affixes, interval)
             local run_id = result:GetUInt32(2)
             if completed == 0 then
                 CharDBExecute("UPDATE character_mythic_history SET completed = 2 WHERE run_id = " .. run_id)
-                p:SendBroadcastMessage("|cff8b0000You left the dungeon. The run is over.|r")
+                p:SendBroadcastMessage("[Mythic+] You left the dungeon. The run is over.")
                 local validPlayer = GetPlayerByGUID(guid)
                 if validPlayer and validPlayer:IsInWorld() then
                     SetEndOfRunUnitFlags(validPlayer)
@@ -500,7 +500,7 @@ function Pedestal_OnGossipHello(_, player, creature)
         player:GossipMenuAddItem(5,string.format("insert Keystone (Tier %d)", keyTier),0,100 + keyTier,false,"",0)
         player:GossipMenuAddItem(2,"step away",0,999)
     else
-        player:SendBroadcastMessage("|cffff0000You do not have a Mythic Keystone.|r")
+        player:SendBroadcastMessage("[Mythic+] You do not have a Mythic Keystone.")
         player:GossipComplete()
         return
     end
@@ -510,7 +510,7 @@ end
 
 function Pedestal_OnGossipSelect(_, player, _, _, intid)
     if not HasValidKeyForCurrentDungeon(player) then
-        player:SendBroadcastMessage("|cffff0000This keystone is not for this dungeon.|r")
+        player:SendBroadcastMessage("[Mythic+] This keystone is not for this dungeon.")
         player:GossipComplete()
         return
     end
@@ -525,14 +525,14 @@ function Pedestal_OnGossipSelect(_, player, _, _, intid)
         local keyId = KEY_IDS[tier]
     
         if not player:HasItem(keyId) then
-            player:SendBroadcastMessage("You do not have the required Tier " .. tier .. " Keystone.")
+            player:SendBroadcastMessage("[Mythic+] You do not have the required Tier " .. tier .. " Keystone.")
             player:GossipComplete()
             return
         end
 
         local map = player:GetMap()
         if not map or map:GetDifficulty() == 0 then
-            player:SendBroadcastMessage("|cffff0000Mythic keys cannot be used in Normal mode dungeons.|r")
+            player:SendBroadcastMessage("[Mythic+] Keystones cannot be used in Normal mode dungeons.")
             player:GossipComplete()
             return
         end
@@ -545,14 +545,19 @@ function Pedestal_OnGossipSelect(_, player, _, _, intid)
         local members = group and group:GetMembers() or {player}
         local today = os.date("%Y-%m-%d")
         local affixes = GetAffixSet(tier)
-        local affixNames = GetAffixNameSet(tier)
-        local safeAffixNames = tostring(affixNames):gsub("'", "''")
+        local affixNames = {}
 
-        local affixQuery = CharDBQuery(string.format("SELECT affix1, affix2, affix3 FROM character_mythic_weekly_affixes ORDER BY week_start DESC LIMIT 1"))
+        local affixQuery = CharDBQuery("SELECT affix1, affix2, affix3 FROM character_mythic_weekly_affixes ORDER BY week_start DESC LIMIT 1")
         if affixQuery then
-            affixNames = { affixQuery:GetString(0), affixQuery:GetString(1), affixQuery:GetString(2) }
+            for i = 1, tier do
+                local name = affixQuery:GetString(i-1)
+                if name then
+                    table.insert(affixNames, name)
+                end
+            end
         end
 
+        local safeAffixNames = table.concat(affixNames, ", "):gsub("'", "''")
         for _, member in ipairs(members) do
             if member:IsInWorld() and member:GetMapId() == mapId then
                 local mguid = member:GetGUIDLow()
@@ -574,8 +579,6 @@ function Pedestal_OnGossipSelect(_, player, _, _, intid)
             if i > 5 then break end
             guids[i] = member:GetGUIDLow()
         end
-
-        local safeAffixNames = table.concat(affixNames, ", "):gsub("'", "''")
 
         CharDBExecute(string.format([[ 
             INSERT INTO character_mythic_history (member_1, member_2, member_3, member_4, member_5, date, mapId, instanceId, tier, start_time, completed, deaths, affixes)
@@ -680,7 +683,12 @@ local function MythicBossKillCheck(event, player, killed)
 
     if not IsRunActive(instanceId) then return end
 
-    if killed:GetEntry() ~= 26692 then
+    local NO_CORPSE_REMOVE_IDS = {
+        [26692] = true, -- 'Ymirjar Harpooner' in Utgarde Pinnacle // would not spawn harpoons otherwise
+        [28585] = true, -- 'Slag' in Halls of Lightning // respawn would be too fast
+    }
+
+    if not NO_CORPSE_REMOVE_IDS[killed:GetEntry()] then
         killed:RemoveCorpse()
     end
 
@@ -862,10 +870,10 @@ local function TryRewardMythicLoot(player, tier)
     if math.random() * 100 <= reward.chancePercent then
         if reward.type == "gear" or reward.type == "pet" or reward.type == "mount" then
             player:AddItem(reward.itemid, reward.amount)
-            player:SendBroadcastMessage("|cff00ff00[Mythic+] Reward:|r " .. reward.itemname)
+            player:SendBroadcastMessage("[Mythic+] Reward: " .. reward.itemname)
         elseif reward.type == "spell" then
             player:LearnSpell(reward.itemid)
-            player:SendBroadcastMessage("|cff00ff00[Mythic+] Reward:|r Spell learned!")
+            player:SendBroadcastMessage("[Mythic+] Reward: Spell learned!")
         end
         if reward.additionalID and reward.additionalType then
             if reward.additionalType == "item" then
@@ -973,7 +981,7 @@ function AwardMythicPoints(player, tier)
 
     local dfmt = string.format("%02d:%02d", math.floor(duration/60), duration%60)
     player:SendBroadcastMessage(string.format(
-      "Tier %d completed in %s.\nNew Rating: %d (|cff00ff00+%d|r = +%d potential +%d bonus -%d penalty)",
+      "[Mythic+] Tier %d completed in %s.\nNew Rating: %d (|cff00ff00+%d|r = +%d potential +%d bonus -%d penalty)",
       tier, dfmt, newRating, runGain, potentialGain, bonus, penalty
     ))
 
@@ -983,7 +991,7 @@ function AwardMythicPoints(player, tier)
     end
     if nextKey and not PlayerHasAnyKeystone(player) then
         player:AddItem(nextKey, 1)
-        player:SendBroadcastMessage("|cffffff00[Mythic]|r You received a higher tier keystone!")
+        player:SendBroadcastMessage("[Mythic+] You received a higher tier keystone!")
     end
 
     RecalculateTotalPoints(player:GetGUIDLow())
@@ -1016,7 +1024,7 @@ local function HeroicEndbossKeyReward(event, player, killed)
     if bossData and killed:GetEntry() == bossData.final then
         if not PlayerHasAnyKeystone(player) then
             player:AddItem(900100, 1)
-            player:SendBroadcastMessage("|cffffff00[Mythic]|r You received a Mythic Keystone!")
+            player:SendBroadcastMessage("[Mythic+] You received a Mythic Keystone!")
         end
     end
 end

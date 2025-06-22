@@ -546,6 +546,11 @@ function MythicHandlers.StartMythicTimerGUI(_, mapId, tier, duration, bossNames,
         insets   = {4,4,4,4},
     }
     timerFrame:SetBackdropColor(0.1,0.1,0.1,0.8)
+    timerFrame:SetMovable(true)
+    timerFrame:EnableMouse(true)
+    timerFrame:RegisterForDrag("LeftButton")
+    timerFrame:SetScript("OnDragStart", function(self) self:StartMoving() end)
+    timerFrame:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
 
     local headerFrame = CreateFrame("Frame", nil, timerFrame)
     headerFrame:SetSize(200,75)
