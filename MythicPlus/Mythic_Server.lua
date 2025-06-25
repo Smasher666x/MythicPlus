@@ -10,9 +10,9 @@ local MythicRewardConfig = {
 
 local MythicBosses = {
     [574] = { -- Utgarde Keep
-        bosses = {23953, 24200, 24201, 23954}, final = 23954, names = {"Prince Keleseth", "Skarvald the Constructor", "Dalronn the Controller", "Ingvar the Plunderer"}, timer = 1080},
+        bosses = {23953, 24200, 24201, 23954}, final = 23954, names = {"Prince Keleseth", "Skarvald the Constructor", "Dalronn the Controller", "Ingvar the Plunderer"}, timer = 1100},
     [575] = { -- Utgarde Pinnacle
-        bosses = {26668, 26687, 26693, 26861}, final = 26861, names = {"Svala Sorrowgrave", "Gortok Palehoof", "Skadi the Ruthless", "King Ymiron"}, timer = 1500},
+        bosses = {26668, 26687, 26693, 26861}, final = 26861, names = {"Svala Sorrowgrave", "Gortok Palehoof", "Skadi the Ruthless", "King Ymiron"}, timer = 1200},
     [576] = { -- The Nexus
         bosses = {26731, 26763, 26794, 26723}, final = 26723, names = {"Grand Magus Telestra", "Anomalus", "Ormorok the Tree-Shaper", "Keristrasza"}, timer = 1500},
     [599] = { -- Halls of Stone
@@ -28,13 +28,13 @@ local MythicBosses = {
     [608] = { -- The Violet Hold
         bosses = {31134}, final = 31134, names = {"Cyanigosa"}, timer = 1500},
     [619] = { -- Ahn'kahet: The Old Kingdom
-        bosses = {29309, 29308, 29310, 30258, 29311}, final = 29311, names = {"Elder Nadox", "Prince Taldaram", "Jedoga Shadowseeker", "Amanitar", "Herald Volazj"}, timer = 1800},
+        bosses = {29309, 29308, 29310, 30258, 29311}, final = 29311, names = {"Elder Nadox", "Prince Taldaram", "Jedoga Shadowseeker", "Amanitar", "Herald Volazj"}, timer = 1500},
     [578] = { -- The Oculus
         bosses = {27654, 27447, 27655, 27656}, final = 27656, names = {"Drakos the Interrogator", "Varos Cloudstrider", "Mage-Lord Urom", "Ley-Guardian Eregos"}, timer = 1500},
     [595] = { -- The Culling of Stratholme
         bosses = {26529, 26530, 26532, 32273, 26533}, final = 26533, names = {"Meathook", "Salramm the Fleshcrafter", "Chrono-Lord Epoch", "Infinite Corruptor", "Mal'Ganis"}, timer = 1500},
     [650] = { -- Trial of the Champion
-        bosses = {35451}, final = 35451, names = {"The Black Knight"}, timer = 960},
+        bosses = {35451}, final = 35451, names = {"The Black Knight"}, timer = 690},
     [632] = { -- Forge of Souls
         bosses = {36497, 36502}, final = 36502, names = {"Bronjahm", "Devourer of Souls"}, timer = 1500},
     [658] = { -- Pit of Saron
@@ -688,75 +688,75 @@ local function MythicBossKillCheck(event, player, killed)
         [28585] = true, -- 'Slag' in Halls of Lightning // respawn would be too fast
     }
 
-    if not NO_CORPSE_REMOVE_IDS[killed:GetEntry()] then
-        killed:RemoveCorpse()
-    end
-
     local entry   = killed:GetEntry()
     local tracker = MYTHIC_BOSS_KILL_TRACKER[instanceId]
     if not tracker then return end
+
+    if not NO_CORPSE_REMOVE_IDS[entry] then
+        killed:RemoveCorpse()
+    end
 
     for i, bossEntry in ipairs(tracker.remaining) do
         if bossEntry == entry then
             table.remove(tracker.remaining, i)
             local bossIndex = tracker.indexMap[entry]
-            if bossIndex then
-                local group   = player:GetGroup()
-                local members = group and group:GetMembers() or { player }
-                for _, member in ipairs(members) do
-                    if member:IsInWorld() and member:GetMapId() == mapId then
-                        AIO.Handle(member, "AIO_Mythic", "MarkBossKilled", mapId, bossIndex)
-                    end
+            local group   = player:GetGroup()
+            local members = group and group:GetMembers() or { player }
+            for _, member in ipairs(members) do
+                if member:IsInWorld() and member:GetMapId() == mapId then
+                    AIO.Handle(member, "AIO_Mythic", "MarkBossKilled", mapId, bossIndex)
                 end
             end
-
-            if #tracker.remaining == 0 then
-                local group   = player:GetGroup()
-                local members = group and group:GetMembers() or { player }
-                for _, member in ipairs(members) do
-                    if member:IsInWorld() and member:GetMapId() == mapId then
-                        local now = os.time()
-                        local bossData = MythicBosses[mapId]
-                        local timerTotal = bossData and bossData.timer or 900
-
-                        local histQ = CharDBQuery(string.format([[ 
-                            SELECT start_time
-                            FROM character_mythic_history
-                            WHERE mapId = %d
-                            AND instanceId = %d
-                            AND completed = 0
-                            ORDER BY start_time DESC
-                            LIMIT 1;
-                        ]], mapId, instanceId))
-                        local startTimeRaw = now
-                        if histQ then
-                            local raw = histQ:GetString(0)
-                            if raw then
-                                startTimeRaw = os.time{
-                                    year = tonumber(raw:sub(1,4)),
-                                    month= tonumber(raw:sub(6,7)),
-                                    day  = tonumber(raw:sub(9,10)),
-                                    hour = tonumber(raw:sub(12,13)),
-                                    min  = tonumber(raw:sub(15,16)),
-                                    sec  = tonumber(raw:sub(18,19)),
-                                }
-                            end
-                        end
-
-                        local duration      = math.max(0, now - startTimeRaw)
-                        local remainingTime = math.max(0, timerTotal - duration)
-
-                        AwardMythicPoints(member, tracker.tier)
-                        AIO.Handle(member, "AIO_Mythic", "StopMythicTimerGUI", remainingTime)
-                        SetEndOfRunUnitFlags(member)
-                    end
-                end
-                MYTHIC_BOSS_KILL_TRACKER[instanceId] = nil
-                MYTHIC_FLAG_TABLE[instanceId]         = nil
-            end
-
             break
         end
+    end
+
+    if #tracker.remaining == 0 then
+        local group   = player:GetGroup()
+        local members = group and group:GetMembers() or { player }
+
+        local now = os.time()
+        local bossData = MythicBosses[mapId]
+        local timerTotal = bossData and bossData.timer or 900
+
+        local histQ = CharDBQuery(string.format([[ 
+            SELECT start_time, deaths
+            FROM character_mythic_history
+            WHERE mapId = %d
+              AND instanceId = %d
+              AND completed = 0
+            ORDER BY start_time DESC
+            LIMIT 1;
+        ]], mapId, instanceId))
+        local startTimeRaw, deaths = now, 0
+        if histQ then
+            local raw = histQ:GetString(0)
+            deaths   = histQ:GetUInt32(1)
+            if raw then
+                startTimeRaw = os.time{
+                    year = tonumber(raw:sub(1,4)),
+                    month= tonumber(raw:sub(6,7)),
+                    day  = tonumber(raw:sub(9,10)),
+                    hour = tonumber(raw:sub(12,13)),
+                    min  = tonumber(raw:sub(15,16)),
+                    sec  = tonumber(raw:sub(18,19)),
+                }
+            end
+        end
+
+        local duration      = math.max(0, now - startTimeRaw)
+        local remainingTime = math.max(0, timerTotal - duration)
+
+        for _, member in ipairs(members) do
+            if member:IsInWorld() and member:GetMapId() == mapId then
+                AwardMythicPoints(member, tracker.tier, duration, deaths, remainingTime)
+                AIO.Handle(member, "AIO_Mythic", "StopMythicTimerGUI", remainingTime)
+                SetEndOfRunUnitFlags(member)
+            end
+        end
+
+        MYTHIC_BOSS_KILL_TRACKER[instanceId] = nil
+        MYTHIC_FLAG_TABLE[instanceId]         = nil
     end
 end
 
@@ -887,7 +887,7 @@ local function TryRewardMythicLoot(player, tier)
     end
 end
 
-function AwardMythicPoints(player, tier)
+function AwardMythicPoints(player, tier, duration, deaths, remainingTime)
     local now        = os.time()
     local map        = player:GetMap()
     if not map then return end
@@ -900,7 +900,6 @@ function AwardMythicPoints(player, tier)
           FROM character_mythic_history
          WHERE mapId = %d
            AND instanceId = %d
-           AND completed = 0
          ORDER BY start_time DESC
          LIMIT 1;
     ]], mapId, instanceId))
@@ -991,7 +990,6 @@ function AwardMythicPoints(player, tier)
     end
     if nextKey and not PlayerHasAnyKeystone(player) then
         player:AddItem(nextKey, 1)
-        player:SendBroadcastMessage("[Mythic+] You received a higher tier keystone!")
     end
 
     RecalculateTotalPoints(player:GetGUIDLow())
@@ -1093,6 +1091,11 @@ function MythicHandlers.RequestLeaderboard(player)
             local plr = GetPlayerByGUID(guid)
             if plr then
                 name = plr:GetName()
+            else
+                local nameQ = CharDBQuery("SELECT name FROM characters WHERE guid = " .. guid)
+                if nameQ then
+                    name = nameQ:GetString(0)
+                end
             end
             table.insert(leaderboard, { name = name, points = points })
         until not top3Query:NextRow()
@@ -1109,6 +1112,11 @@ function MythicHandlers.RequestLeaderboard(player)
             local plr = GetPlayerByGUID(guid)
             if plr then
                 name = plr:GetName()
+            else
+                local nameQ = CharDBQuery("SELECT name FROM characters WHERE guid = " .. guid)
+                if nameQ then
+                    name = nameQ:GetString(0)
+                end
             end
             dungeonTop[tostring(dungeonId)] = { name = name, score = score }
         end
