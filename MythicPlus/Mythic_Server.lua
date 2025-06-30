@@ -68,6 +68,138 @@ local mythicDungeonIds = {
     [608]=true, [619]=true, [632]=true, [650]=true, [658]=true, [668]=true
 }
 
+local PlayerRatingCache = {}
+local PlayerKeysCache = {}
+local PlayerNamesCache = {}
+local WeeklyAffixesCache = nil
+local ActiveRunsCache = {}
+local LeaderboardCache = {
+    topThree = {},
+    dungeonTop = {},
+    lastUpdate = 0
+}
+local LEADERBOARD_CACHE_DURATION = 900 -- 15 minutes
+
+local function LoadPlayerCache(guid)
+    local ratingQuery = CharDBQuery(string.format([[
+        SELECT total_points, total_runs, claimed_tier1, claimed_tier2, claimed_tier3,
+               `574`, `575`, `576`, `578`, `595`, `599`, `600`, `601`, `602`, `604`, `608`, `619`, `632`, `650`, `658`, `668`
+        FROM character_mythic_rating WHERE guid = %d
+    ]], guid))
+    
+    if ratingQuery then
+        PlayerRatingCache[guid] = {
+            total_points = ratingQuery:GetDouble(0),
+            total_runs = ratingQuery:GetUInt32(1),
+            claimed_tier1 = ratingQuery:GetUInt32(2),
+            claimed_tier2 = ratingQuery:GetUInt32(3),
+            claimed_tier3 = ratingQuery:GetUInt32(4),
+            [574] = ratingQuery:GetUInt32(5),
+            [575] = ratingQuery:GetUInt32(6),
+            [576] = ratingQuery:GetUInt32(7),
+            [578] = ratingQuery:GetUInt32(8),
+            [595] = ratingQuery:GetUInt32(9),
+            [599] = ratingQuery:GetUInt32(10),
+            [600] = ratingQuery:GetUInt32(11),
+            [601] = ratingQuery:GetUInt32(12),
+            [602] = ratingQuery:GetUInt32(13),
+            [604] = ratingQuery:GetUInt32(14),
+            [608] = ratingQuery:GetUInt32(15),
+            [619] = ratingQuery:GetUInt32(16),
+            [632] = ratingQuery:GetUInt32(17),
+            [650] = ratingQuery:GetUInt32(18),
+            [658] = ratingQuery:GetUInt32(19),
+            [668] = ratingQuery:GetUInt32(20)
+        }
+    else
+        PlayerRatingCache[guid] = {
+            total_points = 0,
+            total_runs = 0,
+            claimed_tier1 = 0,
+            claimed_tier2 = 0,
+            claimed_tier3 = 0,
+            [574] = 0, [575] = 0, [576] = 0, [578] = 0, [595] = 0, [599] = 0,
+            [600] = 0, [601] = 0, [602] = 0, [604] = 0, [608] = 0, [619] = 0,
+            [632] = 0, [650] = 0, [658] = 0, [668] = 0
+        }
+    end
+    
+    local keyQuery = CharDBQuery(string.format("SELECT mapId FROM character_mythic_keys WHERE guid = %d", guid))
+    if keyQuery then
+        PlayerKeysCache[guid] = keyQuery:GetUInt32(0)
+    else
+        PlayerKeysCache[guid] = nil
+    end
+end
+
+local function SavePlayerRatingCache(guid)
+    local cache = PlayerRatingCache[guid]
+    if not cache then return end
+    
+    CharDBExecute(string.format([[
+        INSERT INTO character_mythic_rating 
+        (guid, total_runs, total_points, claimed_tier1, claimed_tier2, claimed_tier3, 
+         `574`, `575`, `576`, `578`, `595`, `599`, `600`, `601`, `602`, `604`, `608`, `619`, `632`, `650`, `658`, `668`, last_updated)
+        VALUES (%d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, FROM_UNIXTIME(%d))
+        ON DUPLICATE KEY UPDATE
+        total_runs = %d, total_points = %d, claimed_tier1 = %d, claimed_tier2 = %d, claimed_tier3 = %d,
+        `574` = %d, `575` = %d, `576` = %d, `578` = %d, `595` = %d, `599` = %d, `600` = %d, `601` = %d, `602` = %d,
+        `604` = %d, `608` = %d, `619` = %d, `632` = %d, `650` = %d, `658` = %d, `668` = %d, last_updated = FROM_UNIXTIME(%d)
+    ]], 
+    guid, cache.total_runs, cache.total_points, cache.claimed_tier1, cache.claimed_tier2, cache.claimed_tier3,
+    cache[574], cache[575], cache[576], cache[578], cache[595], cache[599], cache[600], cache[601], cache[602],
+    cache[604], cache[608], cache[619], cache[632], cache[650], cache[658], cache[668], os.time(),
+    cache.total_runs, cache.total_points, cache.claimed_tier1, cache.claimed_tier2, cache.claimed_tier3,
+    cache[574], cache[575], cache[576], cache[578], cache[595], cache[599], cache[600], cache[601], cache[602],
+    cache[604], cache[608], cache[619], cache[632], cache[650], cache[658], cache[668], os.time()))
+end
+
+local function UpdateLeaderboardCache()
+    local now = os.time()
+    if now - LeaderboardCache.lastUpdate < LEADERBOARD_CACHE_DURATION then
+        return
+    end
+    
+    local top3Query = CharDBQuery([[ SELECT guid, total_points FROM character_mythic_rating ORDER BY total_points DESC LIMIT 3 ]])
+    LeaderboardCache.topThree = {}
+    if top3Query then
+        repeat
+            local guid = top3Query:GetUInt32(0)
+            local points = top3Query:GetDouble(1)
+            local name = PlayerNamesCache[guid] or "Unknown"
+            if name == "Unknown" then
+                local nameQ = CharDBQuery("SELECT name FROM characters WHERE guid = " .. guid)
+                if nameQ then
+                    name = nameQ:GetString(0)
+                    PlayerNamesCache[guid] = name
+                end
+            end
+            table.insert(LeaderboardCache.topThree, { name = name, points = points })
+        until not top3Query:NextRow()
+    end
+    
+    LeaderboardCache.dungeonTop = {}
+    local dungeonIds = {574, 575, 576, 578, 595, 599, 600, 601, 602, 604, 608, 619, 632, 650, 658, 668}
+    for _, dungeonId in ipairs(dungeonIds) do
+        local query = CharDBQuery("SELECT guid, `" .. dungeonId .. "` FROM character_mythic_rating ORDER BY `" .. dungeonId .. "` DESC LIMIT 1")
+        if query and query:GetUInt32(1) > 0 then
+            local guid = query:GetUInt32(0)
+            local score = query:GetUInt32(1)
+            local name = PlayerNamesCache[guid] or "Unknown"
+            if name == "Unknown" then
+                local nameQ = CharDBQuery("SELECT name FROM characters WHERE guid = " .. guid)
+                if nameQ then
+                    name = nameQ:GetString(0)
+                    PlayerNamesCache[guid] = name
+                end
+            end
+            LeaderboardCache.dungeonTop[tostring(dungeonId)] = { name = name, score = score }
+        end
+    end
+    
+    LeaderboardCache.lastUpdate = now
+end
+
 local PEDESTAL_NPC_ENTRY = 900001
 local KEY_IDS = {
     [1] = 900100,
@@ -85,13 +217,6 @@ local WEEKLY_AFFIX_POOL = {
     { spell = 53201, name = "Falling Stars" }
 }
 
-local SHAMANISM_SPELLS = {
-    [57662] = true,
-    [57621] = true,
-    [58738] = true,
-    [8515]  = true
-}
-
 local function GetCurrentMythicResetDate()
     local now = os.time()
     local t = os.date("*t", now)
@@ -105,19 +230,19 @@ local function GetCurrentMythicResetDate()
     return os.date("%Y-%m-%d", os.time(t))
 end
 
-local WEEKLY_AFFIXES = {}
-
 local function LoadOrRollWeeklyAffixes()
+    if WeeklyAffixesCache then return end
+    
     local resetDate = GetCurrentMythicResetDate()
     local result = CharDBQuery(string.format("SELECT affix1, affix2, affix3 FROM character_mythic_weekly_affixes WHERE week_start = '%s'", resetDate))
 
     if result then
         local names = { result:GetString(0), result:GetString(1), result:GetString(2) }
-        WEEKLY_AFFIXES = {}
+        WeeklyAffixesCache = {}
         for _, name in ipairs(names) do
             for _, affix in ipairs(WEEKLY_AFFIX_POOL) do
                 if affix.name == name then
-                    table.insert(WEEKLY_AFFIXES, affix)
+                    table.insert(WeeklyAffixesCache, affix)
                     break
                 end
             end
@@ -131,7 +256,7 @@ local function LoadOrRollWeeklyAffixes()
         end
         local affix1, affix2, affix3 = shuffled[1], shuffled[2], shuffled[3]
 
-        WEEKLY_AFFIXES = { affix1, affix2, affix3 }
+        WeeklyAffixesCache = { affix1, affix2, affix3 }
 
         CharDBExecute(string.format([[
             INSERT INTO character_mythic_weekly_affixes (week_start, affix1, affix2, affix3)
@@ -180,7 +305,7 @@ LoadMythicLootTable()
 local function GetAffixSet(tier)
     local affixes = {}
     for i = 1, tier do
-        local affix = WEEKLY_AFFIXES[i]
+        local affix = WeeklyAffixesCache[i]
         if affix then
             if type(affix.spell) == "table" then
                 for _, s in ipairs(affix.spell) do
@@ -197,7 +322,7 @@ end
 local function GetAffixNameSet(tier)
     local names = {}
     for i = 1, tier do
-        local affix = WEEKLY_AFFIXES[i]
+        local affix = WeeklyAffixesCache[i]
         if affix then
             table.insert(names, affix.name)
         end
@@ -228,8 +353,7 @@ end
 local function HasValidKeyForCurrentDungeon(player)
     local guid = player:GetGUIDLow()
     local mapId = player:GetMapId()
-    local keyData = CharDBQuery(string.format("SELECT mapId FROM character_mythic_keys WHERE guid = %d", guid))
-    return keyData and keyData:GetUInt32(0) == mapId
+    return PlayerKeysCache[guid] == mapId
 end
 
 local function CalculatePotentialGain(currentRating, tier)
@@ -279,25 +403,20 @@ local function CalculateBonus(currentRating, runTier)
 end
 
 local function RecalculateTotalPoints(guid)
-    local dungeonColumns = {"574", "575", "576", "578", "595", "599", "600", "601", "602", "604", "608", "619", "632", "650", "658", "668"}
-    local queryStr = "SELECT `" .. table.concat(dungeonColumns, "`, `") .. "` FROM `character_mythic_rating` WHERE `guid` = " .. guid .. " LIMIT 1;"
-    local result = CharDBQuery(queryStr)
-
-    if not result then
-        print("[Mythic+][Error] No mythic rating found for guid: " .. guid)
-        return 0
-    end
-
+    local cache = PlayerRatingCache[guid]
+    if not cache then return end
+    
+    local dungeonColumns = {574, 575, 576, 578, 595, 599, 600, 601, 602, 604, 608, 619, 632, 650, 658, 668}
     local total = 0
-    local count = #dungeonColumns
-
-    for i = 0, count - 1 do
-        local val = result:GetUInt32(i)
-        total = total + val
+    
+    for _, mapId in ipairs(dungeonColumns) do
+        total = total + (cache[mapId] or 0)
     end
-
-    local avg = total / count
-    CharDBExecute(string.format("UPDATE character_mythic_rating SET total_points = %d WHERE guid = %d", avg, guid))
+    
+    local avg = total / #dungeonColumns
+    cache.total_points = avg
+    
+    SavePlayerRatingCache(guid)
 end
 
 local function ApplyAuraToNearbyCreatures(player, affixes)
@@ -393,60 +512,36 @@ local function StartAuraLoop(player, instanceId, mapId, affixes, interval)
         if not p then return end
         if not MYTHIC_FLAG_TABLE[instanceId] then return end
         if p:GetMapId() ~= mapId then
-        local today = os.date("%Y-%m-%d")
-        local result = CharDBQuery(string.format([[ 
-            SELECT completed, tier, run_id FROM character_mythic_history 
-            WHERE instanceId = %d AND date = '%s' AND (%d IN (member_1, member_2, member_3, member_4, member_5))
-            ORDER BY start_time DESC LIMIT 1;
-        ]], instanceId, today, guid))
-
-        if result then
-            local completed = result:GetUInt32(0)
-            local tier = result:GetUInt32(1)
-            local run_id = result:GetUInt32(2)
-            if completed == 0 then
-                CharDBExecute("UPDATE character_mythic_history SET completed = 2 WHERE run_id = " .. run_id)
+            local runData = ActiveRunsCache[instanceId]
+            if runData and runData.run_id then
+                CharDBExecute("UPDATE character_mythic_history SET completed = 2 WHERE run_id = " .. runData.run_id)
                 p:SendBroadcastMessage("[Mythic+] You left the dungeon. The run is over.")
                 local validPlayer = GetPlayerByGUID(guid)
                 if validPlayer and validPlayer:IsInWorld() then
                     SetEndOfRunUnitFlags(validPlayer)
                 end
-                DowngradeKeystoneOnFail(p, tier)
+                DowngradeKeystoneOnFail(p, runData.tier)
             end
+            AIO.Handle(p, "AIO_Mythic", "KillMythicTimerGUI")
+            MYTHIC_FLAG_TABLE[instanceId] = nil
+            MYTHIC_AFFIXES_TABLE[instanceId] = nil
+            MYTHIC_LOOP_HANDLERS[instanceId] = nil
+            MYTHIC_REWARD_CHANCE_TABLE[instanceId] = nil
+            ActiveRunsCache[instanceId] = nil
+            if eventId ~= nil then
+                RemoveEventById(eventId)
+            end
+            return
         end
-        AIO.Handle(p, "AIO_Mythic", "KillMythicTimerGUI")
-        MYTHIC_FLAG_TABLE[instanceId] = nil
-        MYTHIC_AFFIXES_TABLE[instanceId] = nil
-        MYTHIC_LOOP_HANDLERS[instanceId] = nil
-        MYTHIC_REWARD_CHANCE_TABLE[instanceId] = nil
-        if eventId ~= nil then
-            RemoveEventById(eventId)
-        end
-        return
-    end
 
         local bossData = MythicBosses[mapId]
         if bossData then
-            local startQuery = CharDBQuery(string.format(
-                "SELECT start_time, tier, run_id FROM character_mythic_history WHERE instanceId = %d AND completed = 0 ORDER BY start_time DESC LIMIT 1;",
-                instanceId
-            ))
-            if startQuery then
-                local raw = startQuery:GetString(0)
-                local tier = startQuery:GetUInt32(1)
-                local run_id = startQuery:GetUInt32(2)
-                local startTime = os.time{
-                    year = tonumber(raw:sub(1,4)),
-                    month= tonumber(raw:sub(6,7)),
-                    day  = tonumber(raw:sub(9,10)),
-                    hour = tonumber(raw:sub(12,13)),
-                    min  = tonumber(raw:sub(15,16)),
-                    sec  = tonumber(raw:sub(18,19)),
-                }
+            local runData = ActiveRunsCache[instanceId]
+            if runData then
                 local now = os.time()
-                local elapsed = now - startTime
+                local elapsed = now - runData.start_time
                 if elapsed >= (bossData.timer or 900) then
-                    CharDBExecute("UPDATE character_mythic_history SET completed = 2 WHERE run_id = " .. run_id)
+                    CharDBExecute("UPDATE character_mythic_history SET completed = 2 WHERE run_id = " .. runData.run_id)
                     local validPlayer = GetPlayerByGUID(guid)
                     if validPlayer and validPlayer:IsInWorld() then
                         SetEndOfRunUnitFlags(validPlayer)
@@ -456,13 +551,14 @@ local function StartAuraLoop(player, instanceId, mapId, affixes, interval)
                     for _, member in ipairs(members) do
                         if member:IsInWorld() and member:GetMapId() == mapId then
                             AIO.Handle(member, "AIO_Mythic", "StopMythicTimerGUI", 0)
-                            DowngradeKeystoneOnFail(member, tier)
+                            DowngradeKeystoneOnFail(member, runData.tier)
                         end
                     end
                     MYTHIC_FLAG_TABLE[instanceId] = nil
                     MYTHIC_AFFIXES_TABLE[instanceId] = nil
                     MYTHIC_LOOP_HANDLERS[instanceId] = nil
                     MYTHIC_REWARD_CHANCE_TABLE[instanceId] = nil
+                    ActiveRunsCache[instanceId] = nil
                     if eventId ~= nil then
                         RemoveEventById(eventId)
                     end
@@ -477,7 +573,14 @@ local function StartAuraLoop(player, instanceId, mapId, affixes, interval)
 end
 
 function Pedestal_OnGossipHello(_, player, creature)
+    if not PlayerHasAnyKeystone(player) then
+        player:SendBroadcastMessage("[Mythic+] You do not have a Mythic Keystone.")
+        player:GossipComplete()
+        return
+    end
+
     if not HasValidKeyForCurrentDungeon(player) then
+        player:SendBroadcastMessage("[Mythic+] Your keystone does not appear to fit.")
         player:GossipComplete()
         return
     end
@@ -497,15 +600,13 @@ function Pedestal_OnGossipHello(_, player, creature)
     end
 
     if keyTier then
-        player:GossipMenuAddItem(5,string.format("insert Keystone (Tier %d)", keyTier),0,100 + keyTier,false,"",0)
-        player:GossipMenuAddItem(2,"step away",0,999)
+        player:GossipMenuAddItem(5, string.format("Insert Keystone (Tier %d)", keyTier), 0, 100 + keyTier, false, "", 0)
+        player:GossipMenuAddItem(2, "Step away", 0, 999)
+        player:GossipSendMenu(1, creature)
     else
         player:SendBroadcastMessage("[Mythic+] You do not have a Mythic Keystone.")
         player:GossipComplete()
-        return
     end
-
-    player:GossipSendMenu(1, creature)
 end
 
 function Pedestal_OnGossipSelect(_, player, _, _, intid)
@@ -547,29 +648,29 @@ function Pedestal_OnGossipSelect(_, player, _, _, intid)
         local affixes = GetAffixSet(tier)
         local affixNames = {}
 
-        local affixQuery = CharDBQuery("SELECT affix1, affix2, affix3 FROM character_mythic_weekly_affixes ORDER BY week_start DESC LIMIT 1")
-        if affixQuery then
-            for i = 1, tier do
-                local name = affixQuery:GetString(i-1)
-                if name then
-                    table.insert(affixNames, name)
-                end
+        for i = 1, tier do
+            local affix = WeeklyAffixesCache[i]
+            if affix then
+                table.insert(affixNames, affix.name)
             end
         end
 
         local safeAffixNames = table.concat(affixNames, ", "):gsub("'", "''")
+        
         for _, member in ipairs(members) do
             if member:IsInWorld() and member:GetMapId() == mapId then
                 local mguid = member:GetGUIDLow()
-                CharDBExecute(string.format([[  
-                    INSERT INTO character_mythic_rating (guid, total_runs, total_points, claimed_tier1, claimed_tier2, claimed_tier3, last_updated)
-                    VALUES (%d, 0, 0, %d, %d, %d, FROM_UNIXTIME(%d))
-                    ON DUPLICATE KEY UPDATE last_updated = FROM_UNIXTIME(%d);
-                ]], mguid,
-                    tier == 1 and 1 or 0,
-                    tier == 2 and 1 or 0,
-                    tier == 3 and 1 or 0,
-                    now, now))
+                if not PlayerRatingCache[mguid] then
+                    LoadPlayerCache(mguid)
+                end
+                
+                local cache = PlayerRatingCache[mguid]
+                if tier == 1 then cache.claimed_tier1 = cache.claimed_tier1 + 1
+                elseif tier == 2 then cache.claimed_tier2 = cache.claimed_tier2 + 1
+                elseif tier == 3 then cache.claimed_tier3 = cache.claimed_tier3 + 1
+                end
+                
+                SavePlayerRatingCache(mguid)
             end
         end
 
@@ -584,16 +685,36 @@ function Pedestal_OnGossipSelect(_, player, _, _, intid)
             INSERT INTO character_mythic_history (member_1, member_2, member_3, member_4, member_5, date, mapId, instanceId, tier, start_time, completed, deaths, affixes)
             VALUES (%d, %d, %d, %d, %d, '%s', %d, %d, %d, FROM_UNIXTIME(%d), 0, 0, '%s');
         ]], guids[1], guids[2], guids[3], guids[4], guids[5], today, mapId, instanceId, tier, now, safeAffixNames))
+        
+        local runIdQuery = CharDBQuery("SELECT LAST_INSERT_ID()")
+        local runId = runIdQuery and runIdQuery:GetUInt32(0) or 0
+        
+        ActiveRunsCache[instanceId] = {
+            guid = guid,
+            mapId = mapId,
+            tier = tier,
+            start_time = now,
+            deaths = 0,
+            run_id = runId,
+            members = {}
+        }
+        
+        for _, member in ipairs(members) do
+            if member:IsInWorld() and member:GetMapId() == mapId then
+                table.insert(ActiveRunsCache[instanceId].members, member:GetGUIDLow())
+            end
+        end
 
         MYTHIC_FLAG_TABLE[instanceId] = false
         MYTHIC_AFFIXES_TABLE[instanceId] = affixes
         MYTHIC_REWARD_CHANCE_TABLE[instanceId] = tier == 1 and 1.5 or tier == 2 and 2.0 or 5.0
 
-        local ratingQuery = CharDBQuery("SELECT `" .. mapId .. "` FROM character_mythic_rating WHERE guid = " .. guid)
-        local currentRating = ratingQuery and ratingQuery:GetUInt32(0) or 0
+        local cache = PlayerRatingCache[guid]
+        local currentRating = cache and cache[mapId] or 0
         local potentialGain = CalculatePotentialGain(currentRating, tier)
 
         player:RemoveItem(keyId, 1)
+        PlayerKeysCache[guid] = nil
         CharDBExecute(string.format("DELETE FROM character_mythic_keys WHERE guid = %d AND mapId = %d", guid, mapId))
 
         local map_x, map_y, map_z, map_o = GetMapEntrance(mapId)
@@ -719,30 +840,9 @@ local function MythicBossKillCheck(event, player, killed)
         local bossData = MythicBosses[mapId]
         local timerTotal = bossData and bossData.timer or 900
 
-        local histQ = CharDBQuery(string.format([[ 
-            SELECT start_time, deaths
-            FROM character_mythic_history
-            WHERE mapId = %d
-              AND instanceId = %d
-              AND completed = 0
-            ORDER BY start_time DESC
-            LIMIT 1;
-        ]], mapId, instanceId))
-        local startTimeRaw, deaths = now, 0
-        if histQ then
-            local raw = histQ:GetString(0)
-            deaths   = histQ:GetUInt32(1)
-            if raw then
-                startTimeRaw = os.time{
-                    year = tonumber(raw:sub(1,4)),
-                    month= tonumber(raw:sub(6,7)),
-                    day  = tonumber(raw:sub(9,10)),
-                    hour = tonumber(raw:sub(12,13)),
-                    min  = tonumber(raw:sub(15,16)),
-                    sec  = tonumber(raw:sub(18,19)),
-                }
-            end
-        end
+        local runData = ActiveRunsCache[instanceId]
+        local startTimeRaw = runData and runData.start_time or now
+        local deaths = runData and runData.deaths or 0
 
         local duration      = math.max(0, now - startTimeRaw)
         local remainingTime = math.max(0, timerTotal - duration)
@@ -750,13 +850,13 @@ local function MythicBossKillCheck(event, player, killed)
         for _, member in ipairs(members) do
             if member:IsInWorld() and member:GetMapId() == mapId then
                 AwardMythicPoints(member, tracker.tier, duration, deaths, remainingTime)
-                AIO.Handle(member, "AIO_Mythic", "StopMythicTimerGUI", remainingTime)
                 SetEndOfRunUnitFlags(member)
             end
         end
 
         MYTHIC_BOSS_KILL_TRACKER[instanceId] = nil
         MYTHIC_FLAG_TABLE[instanceId]         = nil
+        ActiveRunsCache[instanceId] = nil
     end
 end
 
@@ -765,30 +865,14 @@ local function MythicPlayerDeath(event, killer, killed)
     if not map or map:GetDifficulty() == 0 then return end
 
     local instanceId = map:GetInstanceId()
-    local today      = os.date("%Y-%m-%d")
-    local guid       = killed:GetGUIDLow()
+    local runData = ActiveRunsCache[instanceId]
+    if not runData then return end
 
-    local query = string.format([[ 
-        SELECT run_id, tier
-          FROM character_mythic_history
-         WHERE instanceId = %d
-           AND date = '%s'
-           AND completed = 0
-           AND %d IN (member_1, member_2, member_3, member_4, member_5)
-         ORDER BY start_time DESC
-         LIMIT 1;
-    ]], instanceId, today, guid)
+    runData.deaths = runData.deaths + 1
+    local newDeaths = runData.deaths
+    local tier = runData.tier
 
-    local result = CharDBQuery(query)
-    if not result then return end
-    local runId = result:GetUInt32(0)
-    local tier  = result:GetUInt32(1)
-
-    local dq = CharDBQuery("SELECT deaths FROM character_mythic_history WHERE run_id = " .. runId)
-    local oldDeaths = dq and dq:GetUInt32(0) or 0
-    local newDeaths = oldDeaths + 1
-
-    CharDBExecute("UPDATE character_mythic_history SET deaths = " .. newDeaths .. " WHERE run_id = " .. runId)
+    CharDBExecute("UPDATE character_mythic_history SET deaths = " .. newDeaths .. " WHERE run_id = " .. runData.run_id)
 
     local penalty = newDeaths * penaltyPerDeath
 
@@ -802,7 +886,7 @@ local function MythicPlayerDeath(event, killer, killed)
 
     local limit = (tier == 1) and 6 or 4
     if newDeaths >= limit then
-        CharDBExecute("UPDATE character_mythic_history SET completed = 2 WHERE run_id = " .. runId)
+        CharDBExecute("UPDATE character_mythic_history SET completed = 2 WHERE run_id = " .. runData.run_id)
         for _, member in ipairs(members) do
             if member:IsInWorld() and member:GetMapId() == map:GetMapId() then
                 AIO.Handle(member, "AIO_Mythic", "StopMythicTimerGUI", 0)
@@ -813,6 +897,7 @@ local function MythicPlayerDeath(event, killer, killed)
         MYTHIC_FLAG_TABLE[instanceId]    = nil
         MYTHIC_AFFIXES_TABLE[instanceId] = nil
         MYTHIC_REWARD_CHANCE_TABLE[instanceId] = nil
+        ActiveRunsCache[instanceId] = nil
         if MYTHIC_LOOP_HANDLERS[instanceId] then
             RemoveEventById(MYTHIC_LOOP_HANDLERS[instanceId])
             MYTHIC_LOOP_HANDLERS[instanceId] = nil
@@ -893,46 +978,16 @@ function AwardMythicPoints(player, tier, duration, deaths, remainingTime)
     if not map then return end
     local mapId      = map:GetMapId()
     local instanceId = map:GetInstanceId()
-    local timerTotal = (MythicBosses[mapId] and MythicBosses[mapId].timer) or 900
+    local guid       = player:GetGUIDLow()
 
-    local histQ = CharDBQuery(string.format([[ 
-        SELECT start_time, deaths
-          FROM character_mythic_history
-         WHERE mapId = %d
-           AND instanceId = %d
-         ORDER BY start_time DESC
-         LIMIT 1;
-    ]], mapId, instanceId))
-    local startTimeRaw, deaths = now, 0
-    if histQ then
-        local raw = histQ:GetString(0)
-        deaths   = histQ:GetUInt32(1)
-        if raw then
-            startTimeRaw = os.time{
-                year = tonumber(raw:sub(1,4)),
-                month= tonumber(raw:sub(6,7)),
-                day  = tonumber(raw:sub(9,10)),
-                hour = tonumber(raw:sub(12,13)),
-                min  = tonumber(raw:sub(15,16)),
-                sec  = tonumber(raw:sub(18,19)),
-            }
-        end
+    local cache = PlayerRatingCache[guid]
+    if not cache then
+        LoadPlayerCache(guid)
+        cache = PlayerRatingCache[guid]
     end
 
-    local duration      = math.max(0, now - startTimeRaw)
-    local remainingTime = math.max(0, timerTotal - duration)
-
-    local rQ = CharDBQuery(string.format([[ 
-        SELECT `%d`, claimed_tier1, claimed_tier2, claimed_tier3
-          FROM character_mythic_rating
-         WHERE guid = %d;
-    ]], mapId, player:GetGUIDLow()))
-    local previous = 0
-    local c1, c2, c3 = 0, 0, 0
-    if rQ then
-        previous = rQ:GetUInt32(0)
-        c1, c2, c3 = rQ:GetUInt32(1), rQ:GetUInt32(2), rQ:GetUInt32(3)
-    end
+    local previous = cache[mapId] or 0
+    local c1, c2, c3 = cache.claimed_tier1, cache.claimed_tier2, cache.claimed_tier3
 
     local potentialGain = CalculatePotentialGain(previous, tier)
     local bonus = 0
@@ -948,32 +1003,24 @@ function AwardMythicPoints(player, tier, duration, deaths, remainingTime)
     elseif tier == 3 then c3 = c3 + 1
     end
 
-    CharDBExecute(string.format([[ 
-        INSERT INTO character_mythic_rating
-          (guid, total_runs, total_points, claimed_tier1, claimed_tier2, claimed_tier3, `%d`, last_updated)
-        VALUES (%d, 1, %d, %d, %d, %d, %d, FROM_UNIXTIME(%d))
-        ON DUPLICATE KEY UPDATE
-          total_runs    = total_runs    + 1,
-          `%d`          = %d,
-          claimed_tier1 = %d,
-          claimed_tier2 = %d,
-          claimed_tier3 = %d,
-          last_updated  = FROM_UNIXTIME(%d);
-    ]],
-    mapId, player:GetGUIDLow(), newRating, c1, c2, c3, newRating, now,
-    mapId, newRating, c1, c2, c3, now))
+    cache[mapId] = newRating
+    cache.total_runs = cache.total_runs + 1
+    cache.claimed_tier1 = c1
+    cache.claimed_tier2 = c2
+    cache.claimed_tier3 = c3
 
-    CharDBExecute(string.format([[ 
-        UPDATE character_mythic_history
-           SET completed = 1,
-               end_time  = FROM_UNIXTIME(%d),
-               duration  = %d
-         WHERE mapId      = %d
-           AND instanceId = %d
-           AND completed  = 0
-         ORDER BY start_time DESC
-         LIMIT 1;
-    ]], now, duration, mapId, instanceId))
+    SavePlayerRatingCache(guid)
+
+    local runData = ActiveRunsCache[instanceId]
+    if runData and runData.run_id then
+        CharDBExecute(string.format([[ 
+            UPDATE character_mythic_history
+               SET completed = 1,
+                   end_time  = FROM_UNIXTIME(%d),
+                   duration  = %d
+             WHERE run_id = %d;
+        ]], now, duration, runData.run_id))
+    end
 
     AIO.Handle(player, "AIO_Mythic", "StopMythicTimerGUI", remainingTime)
     AIO.Handle(player, "AIO_Mythic", "FinalizeMythicScore", penalty, deaths, bonus)
@@ -992,8 +1039,10 @@ function AwardMythicPoints(player, tier, duration, deaths, remainingTime)
         player:AddItem(nextKey, 1)
     end
 
-    RecalculateTotalPoints(player:GetGUIDLow())
+    RecalculateTotalPoints(guid)
     TryRewardMythicLoot(player, tier)
+    
+    LeaderboardCache.lastUpdate = 0
 end
 
 function BindKeystoneToDungeon(event, player, item, count)
@@ -1001,6 +1050,8 @@ function BindKeystoneToDungeon(event, player, item, count)
     local newMapId = GetRandomMythicMapId()
     
     if item:GetEntry() == 900100 or item:GetEntry() == 900101 or item:GetEntry() == 900102 then
+        PlayerKeysCache[guid] = newMapId
+        
         CharDBExecute(string.format("REPLACE INTO character_mythic_keys (guid, mapId) VALUES (%d, %d)", guid, newMapId))
         if MythicHandlers and MythicHandlers.RequestMapName then
             MythicHandlers.RequestMapName(player)
@@ -1027,6 +1078,19 @@ local function HeroicEndbossKeyReward(event, player, killed)
     end
 end
 
+local function OnPlayerLogin(event, player)
+    local guid = player:GetGUIDLow()
+    LoadPlayerCache(guid)
+    PlayerNamesCache[guid] = player:GetName()
+end
+
+local function OnPlayerLogout(event, player)
+    local guid = player:GetGUIDLow()
+    if PlayerRatingCache[guid] then
+        SavePlayerRatingCache(guid)
+    end
+end
+
 RegisterCreatureGossipEvent(PEDESTAL_NPC_ENTRY, 1, Pedestal_OnGossipHello)
 RegisterCreatureGossipEvent(PEDESTAL_NPC_ENTRY, 2, Pedestal_OnGossipSelect)
 RegisterPlayerEvent(7, MythicBossKillCheck)
@@ -1034,13 +1098,14 @@ RegisterPlayerEvent(7, HeroicEndbossKeyReward)
 RegisterPlayerEvent(8, MythicPlayerDeath)
 RegisterPlayerEvent(53, BindKeystoneToDungeon)
 RegisterPlayerEvent(28, LeaveDungeonMap)
+RegisterPlayerEvent(3, OnPlayerLogin)
+RegisterPlayerEvent(4, OnPlayerLogout)
 
 function MythicHandlers.RequestMapName(player)
     local guid = player:GetGUIDLow()
-    local result = CharDBQuery("SELECT mapId FROM character_mythic_keys WHERE guid = " .. guid)
+    local mapId = PlayerKeysCache[guid]
 
-    if result then
-        local mapId = result:GetUInt32(0)
+    if mapId then
         local mapName = DungeonNames[mapId] or ("Unknown (" .. mapId .. ")")
         AIO.Handle(player, "AIO_Mythic", "ReceiveMapName", mapName)
     else
@@ -1049,12 +1114,10 @@ function MythicHandlers.RequestMapName(player)
 end
 
 function MythicHandlers.RequestWeeklyAffixes(player)
-    local result = CharDBQuery("SELECT affix1, affix2, affix3 FROM character_mythic_weekly_affixes ORDER BY week_start DESC LIMIT 1")
-
-    if result then
-        local affix1 = result:GetString(0)
-        local affix2 = result:GetString(1) or "-"
-        local affix3 = result:GetString(2) or "-"
+    if WeeklyAffixesCache and #WeeklyAffixesCache >= 3 then
+        local affix1 = WeeklyAffixesCache[1].name
+        local affix2 = WeeklyAffixesCache[2].name or "-"
+        local affix3 = WeeklyAffixesCache[3].name or "-"
         AIO.Handle(player, "AIO_Mythic", "ReceiveWeeklyAffixes", affix1, affix2, affix3)
     else
         AIO.Handle(player, "AIO_Mythic", "ReceiveWeeklyAffixes", "?", "?", "?")
@@ -1063,66 +1126,29 @@ end
 
 function MythicHandlers.RequestTotalPoints(player)
     local guid = player:GetGUIDLow()
-    local result = CharDBQuery("SELECT total_points, `574`, `575`, `576`, `578`, `595`, `599`, `600`, `601`, `602`, `604`, `608`, `619`, `632`, `650`, `658`, `668` FROM character_mythic_rating WHERE guid = " .. guid)
+    local cache = PlayerRatingCache[guid]
+    
+    if not cache then
+        LoadPlayerCache(guid)
+        cache = PlayerRatingCache[guid]
+    end
 
-    if result then
-        local totalPoints = result:GetDouble(0)
+    if cache then
         local dungeonScores = {}
-
         local dungeonIds = {574, 575, 576, 578, 595, 599, 600, 601, 602, 604, 608, 619, 632, 650, 658, 668}
-        for i, mapId in ipairs(dungeonIds) do
-            dungeonScores[tostring(mapId)] = result:GetUInt32(i)
+        for _, mapId in ipairs(dungeonIds) do
+            dungeonScores[tostring(mapId)] = cache[mapId] or 0
         end
 
-        AIO.Handle(player, "AIO_Mythic", "ReceiveTotalPoints", totalPoints, dungeonScores)
+        AIO.Handle(player, "AIO_Mythic", "ReceiveTotalPoints", cache.total_points, dungeonScores)
     else
         AIO.Handle(player, "AIO_Mythic", "ReceiveTotalPoints", 0, {})
     end
 end
 
 function MythicHandlers.RequestLeaderboard(player)
-    local top3Query = CharDBQuery([[ SELECT guid, total_points FROM character_mythic_rating ORDER BY total_points DESC LIMIT 3 ]])
-    local leaderboard = {}
-    if top3Query then
-        repeat
-            local guid = top3Query:GetUInt32(0)
-            local points = top3Query:GetDouble(1)
-            local name = "Unknown"
-            local plr = GetPlayerByGUID(guid)
-            if plr then
-                name = plr:GetName()
-            else
-                local nameQ = CharDBQuery("SELECT name FROM characters WHERE guid = " .. guid)
-                if nameQ then
-                    name = nameQ:GetString(0)
-                end
-            end
-            table.insert(leaderboard, { name = name, points = points })
-        until not top3Query:NextRow()
-    end
-
-    local dungeonTop = {}
-    local dungeonIds = {574, 575, 576, 578, 595, 599, 600, 601, 602, 604, 608, 619, 632, 650, 658, 668}
-    for _, dungeonId in ipairs(dungeonIds) do
-        local query = CharDBQuery("SELECT guid, `" .. dungeonId .. "` FROM character_mythic_rating ORDER BY `" .. dungeonId .. "` DESC LIMIT 1")
-        if query and query:GetUInt32(1) > 0 then
-            local guid = query:GetUInt32(0)
-            local score = query:GetUInt32(1)
-            local name = "Unknown"
-            local plr = GetPlayerByGUID(guid)
-            if plr then
-                name = plr:GetName()
-            else
-                local nameQ = CharDBQuery("SELECT name FROM characters WHERE guid = " .. guid)
-                if nameQ then
-                    name = nameQ:GetString(0)
-                end
-            end
-            dungeonTop[tostring(dungeonId)] = { name = name, score = score }
-        end
-    end
-
-    AIO.Handle(player, "AIO_Mythic", "ReceiveLeaderboard", leaderboard, dungeonTop)
+    UpdateLeaderboardCache()
+    AIO.Handle(player, "AIO_Mythic", "ReceiveLeaderboard", LeaderboardCache.topThree, LeaderboardCache.dungeonTop)
 end
 
 local activeMythicTimers = {}
