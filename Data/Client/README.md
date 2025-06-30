@@ -1,6 +1,6 @@
 # MythicPlus Client Setup
 
-To make the `MythicPlus` addon work correctly, users have three choices:
+To make the `MythicPlus` features work correctly, you must use a custom patch file for your WoW client. Addons alone cannot provide all required functionality.
 
 ## 1. Use the Provided Patch File
 
@@ -22,18 +22,7 @@ To make the `MythicPlus` addon work correctly, users have three choices:
 
 ---
 
-## 2. Use the AddOn
-
-- Use the addon located in `Data/Client/AddOn/MythicPlus`.
-- **Note:** This addon does not work by itself because `.dbc` files cannot be overwritten by addons.
-- You must also create your own `.mpq` patch or implement the changes into an existing `.mpq` file.
-
-### How to Add Content:
-- Follow the same steps as described in **Choice 1** using the `.csv` files from `Data/Client/Raw/changes`.
-
----
-
-## 3. Create Your Own Patch File
+## 2. Create Your Own Patch File
 
 - Use the files in `Data/Client/Raw/all` to create your own `.mpq` file.
 - Use a tool like [Ladik's MPQ Editor](https://www.hiveworkshop.com/threads/ladiks-mpq-editor.249562/) to create the patch.

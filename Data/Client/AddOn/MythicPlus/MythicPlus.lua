@@ -1,3 +1,0 @@
-local addonName, addonTable = ...
-local frame = CreateFrame("Frame")
-frame:RegisterEvent("ADDON_LOADED")
