@@ -140,6 +140,8 @@ function MythicHandlers.ReceiveWeeklyAffixes(_, affix1, affix2, affix3)
         colorize(affix3)
 
     MythicPlusFrame.affixText:SetText(text)
+    
+    MythicPlusFrame.currentAffixes = {affix1, affix2, affix3}
 
     for _, button in ipairs(MythicPlusFrame.affixButtons) do
         local name = button.affixName
@@ -535,68 +537,119 @@ function MythicHandlers.StartMythicTimerGUI(_, mapId, tier, duration, bossNames,
     potentialGain = tonumber(potentialGain) or 0
     if type(bossNames) ~= "table" then bossNames = {} end
     local maxDeaths = (tier == 1) and 6 or 4
+    WatchFrame:Hide(); WATCHFRAME_COLLAPSED = true
 
     local timerFrame = CreateFrame("Frame", nil, UIParent)
-    timerFrame:SetSize(200, 120 + #bossNames * 16)
-    timerFrame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -200, -200)
-    timerFrame:SetBackdrop{
-        bgFile   = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile     = true, tileSize = 16, edgeSize = 16,
-        insets   = {4,4,4,4},
-    }
-    timerFrame:SetBackdropColor(0.1,0.1,0.1,0.8)
+    timerFrame:SetSize(320, 120 + #bossNames * 18)
+    timerFrame:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -20, -120)
     timerFrame:SetMovable(true)
     timerFrame:EnableMouse(true)
     timerFrame:RegisterForDrag("LeftButton")
     timerFrame:SetScript("OnDragStart", function(self) self:StartMoving() end)
     timerFrame:SetScript("OnDragStop", function(self) self:StopMovingOrSizing() end)
 
-    local headerFrame = CreateFrame("Frame", nil, timerFrame)
-    headerFrame:SetSize(200,75)
-    headerFrame:SetPoint("TOP", timerFrame, "TOP", 0, 0)
-    headerFrame:SetBackdrop{
-        bgFile   = "Interface\\DialogFrame\\UI-DialogBox-Background",
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile     = true, tileSize = 8, edgeSize = 12,
-        insets   = {3,3,3,3},
-    }
-    headerFrame:SetBackdropColor(0.15,0.15,0.15,0.9)
+    local progressBar = timerFrame:CreateTexture(nil, "BACKGROUND")
+    progressBar:SetTexture("Interface\\MythicPlus\\textures\\MythicBar.blp")
+    progressBar:SetSize(0, 128)
+    progressBar:SetPoint("LEFT", timerFrame, "LEFT", 0, -10)
+    progressBar:SetTexCoord(0, 0, 0, 1)
+    progressBar:Hide()
 
-    local dungeonText = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    dungeonText:SetPoint("TOP", headerFrame, "TOP", 0, -10)
+    local function updateProgress(killedBosses, totalBosses)
+        if totalBosses == 0 then return end
+        
+        local progress = math.min(killedBosses / totalBosses, 1.0)
+        local maxWidth = 256
+        local currentWidth = maxWidth * progress
+        
+        if progress > 0 then
+            progressBar:Show()
+            progressBar:SetWidth(currentWidth)
+            progressBar:SetTexCoord(0, progress, 0, 1)
+        else
+            progressBar:Hide()
+        end
+    end
+
+    local goldenFrame = timerFrame:CreateTexture(nil, "ARTWORK")
+    goldenFrame:SetTexture("Interface\\MythicPlus\\textures\\MythicFrame.blp")
+    goldenFrame:SetSize(256, 128)
+    goldenFrame:SetPoint("LEFT", timerFrame, "LEFT", 0, -10)
+    goldenFrame:SetTexCoord(0, 1, 0, 1)
+
+    local dungeonText = timerFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    dungeonText:SetPoint("TOP", goldenFrame, "TOP", 0, -12)
     local dungeonName = (DUNGEONS[mapId] and DUNGEONS[mapId].name) or ("Map "..mapId)
-    dungeonText:SetText(fmt("|cffcc9933%s|r +%d", dungeonName, tier))
+    dungeonText:SetFont("Fonts\\FRIZQT__.TTF", 16, "OUTLINE")
+    dungeonText:SetText(fmt("|cffFFD700%s|r", dungeonName))
 
-    local timerText = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    timerText:SetPoint("TOP", dungeonText, "BOTTOM", 0, -4)
+    local tierText = timerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    tierText:SetPoint("TOP", goldenFrame, "LEFT", 50, 26)
+    tierText:SetFont("Fonts\\FRIZQT__.TTF", 16, "")
+    tierText:SetText(fmt("|cffFFD700Level %d|r", tier))
+
+    local timerText = timerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    timerText:SetPoint("CENTER", goldenFrame, "LEFT", 48, -6)
+    timerText:SetFont("Fonts\\FRIZQT__.TTF", 20, "OUTLINE")
     timerText:SetText(fmt("%02d:%02d", floor(duration/60), duration%60))
 
     local deaths, penalty, bonus = 0, 0, 0
-    local scoreLabel = headerFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    scoreLabel:SetPoint("TOP", timerText, "BOTTOM", 0, -4)
-
-    local gold  = "|cffcc9933"
-    local red   = "|cffff0000"
-    local green = "|cff33ff33"
-    local reset = "|r"
-
-    local scoreStr =
-        gold..potentialGain..reset.." ".. 
-        gold.."("..reset..
-        red.."-"..penalty..reset..
-        gold.."/"..reset..
-        green.."+"..bonus..reset..
-        gold..")"..reset.." ".. 
-        gold..deaths.."/"..maxDeaths..reset
-
+    local scoreLabel = timerFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    scoreLabel:SetPoint("BOTTOM", goldenFrame, "BOTTOM", 60, 50)
+    
+    local gold, red, green, reset = "|cffFFD700", "|cffff0000", "|cff33ff33", "|r"
+    local scoreStr = gold..potentialGain..reset.." "..gold.."("..reset..red.."-"..penalty..reset..gold.."/"..reset..green.."+"..bonus..reset..gold..")"..reset.." "..gold..deaths.."/"..maxDeaths..reset
     scoreLabel:SetText(scoreStr)
 
+    local affixContainer = CreateFrame("Frame", nil, timerFrame)
+    affixContainer:SetSize(200, 30)
+    affixContainer:SetPoint("BOTTOM", scoreLabel, "TOP", 40, 11)
+
+    local affixIcons = {}
+    local currentAffixes = {}
+
+    if MythicPlusFrame and MythicPlusFrame.currentAffixes then
+        currentAffixes = MythicPlusFrame.currentAffixes
+    end
+
+    local numAffixes = math.min(tier, 3)
+    local iconSize = 20
+    local iconSpacing = 4
+    local totalWidth = (numAffixes * iconSize) + ((numAffixes - 1) * iconSpacing)
+    local startX = -totalWidth / 2
+
+    for i = 1, numAffixes do
+        local affixName = currentAffixes[i]
+        if affixName and AFFIXES[affixName] then
+            local icon = CreateFrame("Button", nil, affixContainer)
+            icon:SetSize(iconSize, iconSize)
+            icon:SetPoint("LEFT", affixContainer, "LEFT", startX + (i-1) * (iconSize + iconSpacing) + 30, -5)
+            
+            local texture = icon:CreateTexture(nil, "ARTWORK")
+            texture:SetAllPoints()
+            texture:SetTexture(AFFIXES[affixName].icon)
+            
+            icon:SetScript("OnEnter", function(self)
+                GameTooltip:SetOwner(self, "ANCHOR_TOP")
+                local color = AFFIXES[affixName].color or "|cffffffff"
+                GameTooltip:SetText(color .. affixName .. "|r")
+                GameTooltip:AddLine(AFFIXES[affixName].description or "", 1, 1, 1, true)
+                GameTooltip:Show()
+            end)
+            
+            icon:SetScript("OnLeave", function()
+                GameTooltip:Hide()
+            end)
+            
+            affixIcons[i] = icon
+        end
+    end
+
     local bossLabels = {}
-    for i,name in ipairs(bossNames) do
+    for i, name in ipairs(bossNames) do
         local lbl = timerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        lbl:SetPoint("TOPLEFT", timerFrame, "TOPLEFT", 10, -80 - (i-1)*16)
-        lbl:SetText(fmt("|cffcccccc%s|r", name))
+        lbl:SetPoint("TOPLEFT", goldenFrame, "BOTTOMLEFT", 20, 10 - (i-1)*16)
+        lbl:SetText(fmt("%d/%d %s", 0, 1, name))
         lbl.bossName = name
         bossLabels[i] = lbl
     end
@@ -618,15 +671,19 @@ function MythicHandlers.StartMythicTimerGUI(_, mapId, tier, duration, bossNames,
     timerFrame:Show()
 
     MythicBossTimerUI = {
-        frame         = timerFrame,
-        timerText     = timerText,
-        scoreLabel    = scoreLabel,
-        labels        = bossLabels,
+        frame = timerFrame,
+        timerText = timerText,
+        scoreLabel = scoreLabel,
+        labels = bossLabels,
+        progressBar = progressBar,
+        updateProgress = updateProgress,
+        totalBosses = #bossNames,
+        killedBosses = 0,
         potentialGain = potentialGain,
-        penalty       = penalty,
-        bonus         = bonus,
-        deaths        = deaths,
-        maxDeaths     = maxDeaths,
+        penalty = 0,
+        bonus = 0,
+        deaths = 0,
+        maxDeaths = maxDeaths,
     }
 end
 
@@ -680,9 +737,15 @@ end
 function MythicHandlers.MarkBossKilled(_, mapId, bossIndex)
     local ui = MythicBossTimerUI
     if not ui or not ui.labels then return end
+    
     local lbl = ui.labels[bossIndex]
     if lbl and lbl.bossName then
-        lbl:SetText(fmt("|cff26c426%s|r", lbl.bossName))
+        lbl:SetText(fmt("|cff26c426%d/%d %s|r", 1, 1, lbl.bossName))
+        
+        ui.killedBosses = ui.killedBosses + 1
+        if ui.updateProgress then
+            ui.updateProgress(ui.killedBosses, ui.totalBosses)
+        end
     end
 end
 
@@ -698,6 +761,7 @@ function MythicHandlers.StopMythicTimerGUI(_, remaining)
 end
 
 function MythicHandlers.KillMythicTimerGUI()
+    WatchFrame:Show(); WATCHFRAME_COLLAPSED = nil
     if MythicBossTimerUI and MythicBossTimerUI.frame then
         MythicBossTimerUI.frame.stopped = true
         MythicBossTimerUI.frame:Hide()

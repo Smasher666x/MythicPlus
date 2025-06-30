@@ -24,7 +24,7 @@ local MythicBosses = {
     [602] = { -- Halls of Lightning
         bosses = {28586, 28587, 28546, 28923}, final = 28923, names = {"General Bjarngrim", "Volkhan", "Ionar", "Loken"}, timer = 1800},
     [604] = { -- Gundrak
-        bosses = {29304, 29307, 29305, 29932, 29306}, final = 29306, names = {"Slad'ran", "Drakkari Colossus", "Moorabi", "Eck the Ferocious", "Gal'darah"}, timer = 1500},
+        bosses = {29304, 29573, 29305, 29932, 29306}, final = 29306, names = {"Slad'ran", "Drakkari Colossus", "Moorabi", "Eck the Ferocious", "Gal'darah"}, timer = 1500},
     [608] = { -- The Violet Hold
         bosses = {31134}, final = 31134, names = {"Cyanigosa"}, timer = 1500},
     [619] = { -- Ahn'kahet: The Old Kingdom

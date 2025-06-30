@@ -51,6 +51,8 @@ Features include:
 ## Planned Features
 
 - **Weekly Vault Reward:** A system to grant players a special reward once per week based on their Mythic+ performance.
+- **Better GUI:** A rework on the curent GUI by using the actual Mythic+ GUI.
+- **Downgrade or Change bound dungeon:** An NPC that will allow you to downgrade your keystone and/or randomize the bound dungeon.
 
 ---
 
