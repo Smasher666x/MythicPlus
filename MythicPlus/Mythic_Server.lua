@@ -130,7 +130,7 @@ local MythicBosses = {
     [658] = { -- Pit of Saron
         bosses = {36494, 36476, 36658}, final = 36658, names = {"Forgemaster Garfrost", "Ick", "Scourgelord Tyrannus"}, timer = 1500, enemies = 44},
     [668] = { -- Halls of Reflection
-        bosses = {38112, 38113, 36954}, final = 36954, names = {"Falric", "Marwyn", "The Lich King"}, timer = 300, enemies = 0}
+        bosses = {38112, 38113, 36954}, final = 36954, names = {"Falric", "Marwyn", "The Lich King"}, timer = 1500, enemies = 0}
 }
 
 local DungeonNames = {
