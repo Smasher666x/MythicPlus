@@ -14,14 +14,16 @@
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
--- Dumping structure for table acore_characters.character_mythic_keys
-DROP TABLE IF EXISTS `character_mythic_keys`;
-CREATE TABLE IF NOT EXISTS `character_mythic_keys` (
-  `guid` int unsigned NOT NULL,
-  `mapId` int unsigned NOT NULL,
-  `tier` int unsigned NOT NULL DEFAULT 1,
-  PRIMARY KEY (`guid`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+-- Dumping structure for table acore_world.world_vault_loot
+DROP TABLE IF EXISTS `world_vault_loot`;
+CREATE TABLE IF NOT EXISTS `world_vault_loot` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `itemid` int unsigned NOT NULL,
+  `loot_bracket` varchar(50) NOT NULL,
+  `chancePercent` float NOT NULL,
+  `faction` char(1) NOT NULL DEFAULT 'N',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Data exporting was unselected.
 

@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS `character_mythic_history` (
   `member_4` int unsigned DEFAULT NULL,
   `member_5` int unsigned DEFAULT NULL,
   PRIMARY KEY (`run_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=189 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Data exporting was unselected.
 
