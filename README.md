@@ -218,10 +218,10 @@ The vault system automatically generates rewards every Wednesday at 8 AM server 
    - Import all `.sql` files from `Data/SQL/world` into your **world** database.
    - Import all `.sql` files from `Data/SQL/characters` into your **characters** database.
 
-3. **Client Patch:**  
-   - Move `Data/Patch-Z.MPQ` from this repo into your WoW client's `Data` folder.
-   - If you already have a `Patch-Z.MPQ`, either merge the contents or rename this file (e.g., `Patch-Y.MPQ`).  
-     The patch should be loaded late (alphabetically last) to avoid being overwritten by other patches.
+3. **Client Setup:**  
+   - **You must create your own custom patch file** to enable the MythicPlus interface, textures, and sounds.
+   - Follow the detailed instructions in [`Data/Client/README.md`](Data/Client/README.md) to create your custom patch file.
+   - The patch file is required for proper display of the MythicPlus GUI, timer, vault interface, and custom textures.
 
 4. **Restart Server and Client:**  
    - Restart your AzerothCore server.
@@ -239,6 +239,7 @@ The vault system automatically generates rewards every Wednesday at 8 AM server 
 4. **Overtime:** If time expires, you can continue for loot but won't gain rating or keystone upgrades.
 5. **Progression:** Your keystone upgrades (+1 to +3) or downgrades (-1) based on performance.
 6. **Weekly Rewards:** Collect vault rewards based on your highest completed keystones each week.
+7. **Finding the Vault:** The Mythic Vault can be found in Dalaran, in front of the Violet Hold dungeon entrance, on the circular platform to the left side.
 
 ---
 
