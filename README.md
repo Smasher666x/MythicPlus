@@ -2,8 +2,14 @@
 
 ## Disclaimer
 
-This project is for **educational purposes only**.  
-Some files used within `Patch-Z.MPQ` are owned and licensed by Blizzard Entertainment, and all rights to those files remain with Blizzard.
+This project is for **educational purposes only**.
+
+**Important Legal Notice:**
+- All graphical assets, sounds, and textures used in this project are the intellectual property of **Blizzard Entertainment, Inc.**
+- We do not own, claim ownership of, or distribute any copyrighted Blizzard content
+- Users must source these assets from their own legitimate World of Warcraft installation
+- Custom client files are required for full functionality - see [`Data/Client/README.md`](Data/Client/README.md) for setup instructions
+- This project provides only the server-side scripting framework - no Blizzard assets are included
 
 ---
 
@@ -258,3 +264,7 @@ MythicPlus for AzerothCore - A Mythic+ system using Eluna and AIO.
 Copyright (C) 2025 huptiq
 
 This project is licensed under the [GNU GENERAL PUBLIC LICENSE Version 3](LICENSE).
+
+**Third-Party Assets:**
+- World of Warcraft®, Wrath of the Lich King® are registered trademarks of Blizzard Entertainment, Inc.
+- All game assets, textures, sounds, and other copyrighted materials remain the property of Blizzard Entertainment, Inc.
