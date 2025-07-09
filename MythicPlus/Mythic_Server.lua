@@ -561,15 +561,27 @@ local function GetCurrentVaultWeek()
 end
 
 function LoadPlayerVaultCache(guid)
-    local weekStart = GetCurrentVaultWeek()
+    local currentWeek = GetCurrentVaultWeek()
     local query = CharDBQuery(string.format([[
         SELECT highest_tier_1, highest_tier_2, highest_tier_3, successful_runs, 
-               item_1_id, item_2_id, item_3_id, items_generated, has_collected, can_collect
+               item_1_id, item_2_id, item_3_id, items_generated, has_collected, can_collect, week_start
         FROM character_mythic_vault 
         WHERE guid = %d AND week_start = '%s'
-    ]], guid, weekStart))
+    ]], guid, currentWeek))
     
+    if not query or (query and query:GetUInt32(9) == 0) then
+        query = CharDBQuery(string.format([[
+            SELECT highest_tier_1, highest_tier_2, highest_tier_3, successful_runs, 
+                   item_1_id, item_2_id, item_3_id, items_generated, has_collected, can_collect, week_start
+            FROM character_mythic_vault 
+            WHERE guid = %d AND can_collect = 1 AND has_collected = 0
+            ORDER BY week_start DESC
+            LIMIT 1
+        ]], guid))
+    end
+
     if query then
+        local weekStart = query:GetString(10) or currentWeek
         PlayerVaultCache[guid] = {
             week_start = weekStart,
             highest_tier_1 = query:IsNull(0) and nil or query:GetUInt32(0),
@@ -585,7 +597,7 @@ function LoadPlayerVaultCache(guid)
         }
     else
         PlayerVaultCache[guid] = {
-            week_start = weekStart,
+            week_start = currentWeek,
             highest_tier_1 = nil,
             highest_tier_2 = nil,
             highest_tier_3 = nil,
@@ -736,18 +748,7 @@ function WeeklyVaultInteract(event, go, player)
         player:SendBroadcastMessage("[Mythic+] No loot available in your vault this week.")
         return
     end
-    
-    local prevWeek = os.date("%Y-%m-%d", os.time() - 7*24*60*60)
-    local prevQuery = CharDBQuery(string.format([[
-        SELECT has_collected FROM character_mythic_vault 
-        WHERE guid = %d AND week_start = '%s' AND can_collect = 1
-    ]], guid, prevWeek))
-    
-    if prevQuery and prevQuery:GetUInt32(0) == 0 then
-        player:SendBroadcastMessage("[Mythic+] You must collect your previous week's vault reward first.")
-        return
-    end
-    
+
     if not cache.items_generated then
         GenerateVaultItemsForPlayer(player)
     end
