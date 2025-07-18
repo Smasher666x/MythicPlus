@@ -1,21 +1,174 @@
-local DUNGEONS = {
-    [574] = { name = "Utgarde Keep", icon = "Interface\\Icons\\achievement_boss_svalasorrowgrave" },
-    [575] = { name = "Utgarde Pinnacle", icon = "Interface\\Icons\\achievement_boss_kingymiron" },
-    [576] = { name = "The Nexus", icon = "Interface\\Icons\\spell_frost_frozencore" },
-    [578] = { name = "The Oculus", icon = "Interface\\Icons\\achievement_boss_eregos" },
-    [595] = { name = "The Culling of Stratholme", icon = "Interface\\Icons\\achievement_dungeon_cotstratholme_normal" },
-    [599] = { name = "Halls of Stone", icon = "Interface\\Icons\\achievement_boss_sjonnir" },
-    [600] = { name = "Drak'Tharon Keep", icon = "Interface\\Icons\\inv_bone_skull_04" },
-    [601] = { name = "Azjol-Nerub", icon = "Interface\\Icons\\inv_misc_head_nerubian_01" },
-    [602] = { name = "Halls of Lightning", icon = "Interface\\Icons\\achievement_boss_archaedas" },
-    [604] = { name = "Gundrak", icon = "Interface\\Icons\\achievement_boss_galdarah" },
-    [608] = { name = "The Violet Hold", icon = "Interface\\Icons\\achievement_reputation_kirintor" },
-    [619] = { name = "Ahn'kahet: The Old Kingdom", icon = "Interface\\Icons\\achievement_boss_yoggsaron_01" },
-    [632] = { name = "The Forge of Souls", icon = "Interface\\Icons\\achievement_boss_devourerofsouls" },
-    [650] = { name = "Trial of the Champion", icon = "Interface\\Icons\\achievement_reputation_argentcrusader" },
-    [658] = { name = "Pit of Saron", icon = "Interface\\Icons\\achievement_boss_scourgelordtyrannus" },
-    [668] = { name = "Halls of Reflection", icon = "Interface\\Icons\\achievement_dungeon_icecrown_frostmourne" },
+local activeAffixes = {}
+local AIO = AIO or require("AIO")
+local L = {
+    Text = function(self, category, key, localeIndex)
+        if not self[category] or not self[category][key] then
+            return key
+        end
+        
+        if not self[category][key][localeIndex] then
+            return self[category][key][0]
+        end
+        
+        return self[category][key][localeIndex]
+    end,
+    Items = {},
+    Dungeons = {},
+    UI = {}
 }
+if AIO.AddAddon() then
+    return
+end
+
+local MythicHandlers = AIO.AddHandlers("AIO_Mythic", {})
+local lastKeystoneLink = nil
+local lastMapName = nil
+local lastTierLevel = nil
+local fmt, floor = string.format, math.floor
+local localeDataReceived = false
+
+function MythicHandlers.ReceiveLocaleData(_, category, entries)
+    if type(entries) == "table" then
+        L[category] = entries
+        if L.Items and L.Dungeons and L.UI then
+            localeDataReceived = true
+            if MythicPlusFrame then
+                UpdateLocalizedElements()
+            end
+        end
+    end
+end
+
+function GetText(category, key)
+    local localeIndex = GetLocale() and GetLocaleIndex() or 0
+    return L:Text(category, key, localeIndex)
+end
+
+function GetLocaleIndex()
+    local locale = GetLocale()
+    local localeMap = {
+        ["enUS"] = 0, ["enGB"] = 0,
+        ["koKR"] = 1,
+        ["frFR"] = 2,
+        ["deDE"] = 3,
+        ["zhCN"] = 4,
+        ["zhTW"] = 5,
+        ["esES"] = 6,
+        ["esMX"] = 7,
+        ["ruRU"] = 8
+    }
+    return localeMap[locale] or 0
+end
+
+function UpdateLocalizedElements()
+    if DUNGEONS then
+        for mapId, dungeonData in pairs(DUNGEONS) do
+            dungeonData.name = GetText("Dungeons", dungeonData.originalName)
+        end
+    end
+    
+    if MythicPlusFrame then
+        if tabs then
+            for i, tab in ipairs(tabs) do
+                if i == 1 then
+                    tab:SetText(GetText("UI", "Overview"))
+                elseif i == 2 then
+                    tab:SetText(GetText("UI", "Score"))
+                elseif i == 3 then
+                    tab:SetText(GetText("UI", "Leaderboard"))
+                end
+            end
+        end
+        
+        if MythicPlusFrame.overviewTitle then
+            MythicPlusFrame.overviewTitle:SetText(GetText("UI", "Overview"))
+        end
+        if MythicPlusFrame.scoreTitle then
+            MythicPlusFrame.scoreTitle:SetText(GetText("UI", "Score"))
+        end
+        if MythicPlusFrame.leaderboardTitle then
+            MythicPlusFrame.leaderboardTitle:SetText(GetText("UI", "Leaderboard"))
+        end
+    
+    if frame and frame.affixButtons then
+        for _, button in ipairs(frame.affixButtons) do
+            if button.affixName then
+                local isActive = frame.currentAffixes and 
+                    (button.affixName == frame.currentAffixes[1] or 
+                     button.affixName == frame.currentAffixes[2] or 
+                     button.affixName == frame.currentAffixes[3])
+                
+                button.label:SetText((isActive and "|cff00ff00" or "") .. GetText("UI", button.affixName))
+                button:SetScript("OnEnter", function(self)
+                    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                    local color = AFFIXES[button.affixName].color or "|cffffffff"
+                    GameTooltip:SetText(color .. GetText("UI", button.affixName) .. "|r")
+                    GameTooltip:AddLine(AFFIXES[button.affixName].description or "", 1, 1, 1, true)
+                    GameTooltip:Show()
+                end)
+            end
+        end
+    end
+    if frame and frame.scoreButtons then
+        for i, button in ipairs(frame.scoreButtons) do
+            local mapId = DUNGEON_ORDER[i]
+            if mapId and DUNGEONS[mapId] then
+                button.nameLabel:SetText(DUNGEONS[mapId].name)
+            end
+        end
+    end
+    if frame and frame.leaderboardButtons then
+        for i, button in ipairs(frame.leaderboardButtons) do
+            local mapId = DUNGEON_ORDER[i]
+            if mapId then
+                button:SetScript("OnEnter", function(self)
+                    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                    GameTooltip:SetText(GetText("Dungeons", DUNGEONS[mapId].originalName))
+                    GameTooltip:Show()
+                end)
+            end
+        end
+    end
+        if MythicPlusFrame:IsVisible() and MythicPlusFrame.currentTab then
+            SetActiveTab(MythicPlusFrame.currentTab)
+        end
+    end
+end
+
+local DUNGEONS = {
+    [574] = { originalName = "Utgarde Keep", name = "Utgarde Keep", icon = "Interface\\Icons\\achievement_boss_svalasorrowgrave" },
+    [575] = { originalName = "Utgarde Pinnacle", name = "Utgarde Pinnacle", icon = "Interface\\Icons\\achievement_boss_kingymiron" },
+    [576] = { originalName = "The Nexus", name = "The Nexus", icon = "Interface\\Icons\\spell_frost_frozencore" },
+    [578] = { originalName = "The Oculus", name = "The Oculus", icon = "Interface\\Icons\\achievement_boss_eregos" },
+    [595] = { originalName = "The Culling of Stratholme", name = "The Culling of Stratholme", icon = "Interface\\Icons\\achievement_dungeon_cotstratholme_normal" },
+    [599] = { originalName = "Halls of Stone", name = "Halls of Stone", icon = "Interface\\Icons\\achievement_boss_sjonnir" },
+    [600] = { originalName = "Drak'Tharon Keep", name = "Drak'Tharon Keep", icon = "Interface\\Icons\\inv_bone_skull_04" },
+    [601] = { originalName = "Azjol-Nerub", name = "Azjol-Nerub", icon = "Interface\\Icons\\inv_misc_head_nerubian_01" },
+    [602] = { originalName = "Halls of Lightning", name = "Halls of Lightning", icon = "Interface\\Icons\\achievement_boss_archaedas" },
+    [604] = { originalName = "Gundrak", name = "Gundrak", icon = "Interface\\Icons\\achievement_boss_galdarah" },
+    [608] = { originalName = "The Violet Hold", name = "The Violet Hold", icon = "Interface\\Icons\\achievement_reputation_kirintor" },
+    [619] = { originalName = "Ahn'kahet: The Old Kingdom", name = "Ahn'kahet: The Old Kingdom", icon = "Interface\\Icons\\achievement_boss_yoggsaron_01" },
+    [632] = { originalName = "The Forge of Souls", name = "The Forge of Souls", icon = "Interface\\Icons\\achievement_boss_devourerofsouls" },
+    [650] = { originalName = "Trial of the Champion", name = "Trial of the Champion", icon = "Interface\\Icons\\achievement_reputation_argentcrusader" },
+    [658] = { originalName = "Pit of Saron", name = "Pit of Saron", icon = "Interface\\Icons\\achievement_boss_scourgelordtyrannus" },
+    [668] = { originalName = "Halls of Reflection", name = "Halls of Reflection", icon = "Interface\\Icons\\achievement_dungeon_icecrown_frostmourne" },
+}
+
+AIO.Handle("AIO_Mythic", "RequestLocaleData", "Items")
+AIO.Handle("AIO_Mythic", "RequestLocaleData", "Dungeons")
+AIO.Handle("AIO_Mythic", "RequestLocaleData", "UI")
+
+local updateFrame = CreateFrame("Frame")
+updateFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+updateFrame:SetScript("OnEvent", function(self, event)
+    if event == "PLAYER_ENTERING_WORLD" then
+        C_Timer.After(1, function()
+            AIO.Handle("AIO_Mythic", "RequestLocaleData", "Items")
+            AIO.Handle("AIO_Mythic", "RequestLocaleData", "Dungeons")
+            AIO.Handle("AIO_Mythic", "RequestLocaleData", "UI")
+        end)
+    end
+end)
 
 local DUNGEON_ORDER = {
     574, 575, 576, 578,
@@ -35,26 +188,21 @@ local AFFIXES = {
     ["Falling Stars"] = { icon = "Interface\\Icons\\ability_druid_starfall", color = "|cff66ccff", description = "Calls down celestial forces, bombarding enemies from above." },
 }
 
-
-local activeAffixes = {}
-local AIO = AIO or require("AIO")
-if AIO.AddAddon() then
-    return
-end
-
-local MythicHandlers = AIO.AddHandlers("AIO_Mythic", {})
-local lastKeystoneLink = nil
-local lastMapName = nil
-local lastTierLevel = nil
-local fmt, floor = string.format, math.floor
-
 function MythicHandlers.ReceiveMapNameAndTier(_, mapName, tier)
+    local originalMapName = mapName
+    for id, dungeon in pairs(DUNGEONS) do
+        if dungeon.originalName == mapName then
+            mapName = GetText("Dungeons", dungeon.originalName)
+            break
+        end
+    end
+    
     lastMapName = mapName
     lastTierLevel = tier
 
     if GameTooltip:IsShown() then
         local name, link = GameTooltip:GetItem()
-        if link and name and string.find(name, "Mythic Keystone") then
+        if link and name and (string.find(name, "Mythic Keystone") or string.find(name, GetText("Items", "Mythic Keystone"))) then
             GameTooltip:Hide()
             GameTooltip:SetOwner(UIParent, "ANCHOR_CURSOR")
             GameTooltip:SetHyperlink(link)
@@ -63,9 +211,15 @@ function MythicHandlers.ReceiveMapNameAndTier(_, mapName, tier)
 end
 
 local lineAdded = false
-local function OnTooltipSetItem(tooltip)
+function OnTooltipSetItem(tooltip)
     local name, link = tooltip:GetItem()
-    if not name or not string.find(name, "Mythic Keystone") then return end
+    local englishName = "Mythic Keystone"
+    local localizedName = GetText("Items", "Mythic Keystone")
+    
+    if not name or (not string.find(name, englishName) and not string.find(name, localizedName)) then 
+        return 
+    end
+    
     if link ~= lastKeystoneLink then
         lastKeystoneLink = link
         lastMapName = "Loading..."
@@ -75,7 +229,7 @@ local function OnTooltipSetItem(tooltip)
     local line = _G[tooltip:GetName() .. "TextLeft2"]
     if line then
         local tierText = lastTierLevel and lastTierLevel ~= "Loading..." and ("+" .. lastTierLevel) or ""
-        line:SetText("|cffa335eeMythic" .. tierText .. " |r" .. (lastMapName or "Loading..."))
+        line:SetText("|cffa335ee" .. GetText("UI", "Mythic") .. tierText .. " |r" .. (lastMapName or "Loading..."))
         line:Show()
         tooltip:Show()
     end
@@ -110,9 +264,9 @@ mythicMiniButton:SetPoint("TOPLEFT", Minimap, "BOTTOMLEFT", -20, 70)
 
 mythicMiniButton:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    GameTooltip:SetText("Mythic+")
+    GameTooltip:SetText(GetText("UI", "Mythic+"))
     if self.hasVaultLoot then
-        GameTooltip:AddLine("There is loot in your Vault in Dalaran City", 1, 1, 0)
+        GameTooltip:AddLine(GetText("UI", "There is loot in your Vault in Dalaran City"), 1, 1, 0)
     end
     GameTooltip:Show()
 end)
@@ -130,10 +284,10 @@ end)
 
 function MythicHandlers.ReceiveWeeklyAffixes(_, affix1, affix2, affix3)
     local function colorize(name)
-        return (AFFIXES[name].color or "|cffffffff") .. name .. "|r"
+        return (AFFIXES[name].color or "|cffffffff") .. GetText("UI", name) .. "|r"
     end
 
-    local text = "This week's affixes: " ..
+    local text = GetText("UI", "This week's affixes:") .. " " ..
         colorize(affix1) .. ", " ..
         colorize(affix2) .. ", " ..
         colorize(affix3)
@@ -146,12 +300,16 @@ function MythicHandlers.ReceiveWeeklyAffixes(_, affix1, affix2, affix3)
         local name = button.affixName
         local label = button.label
         local isActive = name == affix1 or name == affix2 or name == affix3
-        label:SetText((isActive and "|cff00ff00" or "") .. name)
+        label:SetText((isActive and "|cff00ff00" or "") .. GetText("UI", name))
     end
 end
 
 MythicPlusFrame = CreateFrame("Frame", "MythicPlusFrame", UIParent)
 local frame = MythicPlusFrame
+
+if localeDataReceived then
+    UpdateLocalizedElements()
+end
 
 frame:SetSize(720, 480)
 frame:SetPoint("CENTER", UIParent, "CENTER", 270, 270)
@@ -277,17 +435,17 @@ local function CreateBannerTitle(parent, text, anchorPoint)
     return banner, title
 end
 
-local overviewBanner, overviewTitle = CreateBannerTitle(frame, "Overview", 0)
+local overviewBanner, overviewTitle = CreateBannerTitle(frame, GetText("UI", "Overview"), 0)
 frame.overviewTitle = overviewTitle
 frame.overviewBanner = overviewBanner
 
-local scoreBanner, scoreTitle = CreateBannerTitle(frame, "Score", 0)
+local scoreBanner, scoreTitle = CreateBannerTitle(frame, GetText("UI", "Score"), 0)
 frame.scoreTitle = scoreTitle
 frame.scoreBanner = scoreBanner
 scoreBanner:Hide()
 scoreTitle:Hide()
 
-local leaderboardBanner, leaderboardTitle = CreateBannerTitle(frame, "Leaderboard", 0)
+local leaderboardBanner, leaderboardTitle = CreateBannerTitle(frame, GetText("UI", "Leaderboard"), 0)
 frame.leaderboardTitle = leaderboardTitle
 frame.leaderboardBanner = leaderboardBanner
 leaderboardBanner:Hide()
@@ -297,7 +455,7 @@ local affixText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 affixText:SetPoint("TOP", overviewBanner, "BOTTOM", 0, -10)
 affixText:SetJustifyH("CENTER")
 affixText:SetFont("Fonts\\FRIZQT__.TTF", 14, "OUTLINE")
-affixText:SetText("This week's affixes: Loading...")
+affixText:SetText(GetText("UI", "This week's affixes:") .. " Loading...")
 frame.affixText = affixText
 
 local scoreText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -467,6 +625,8 @@ end
 local tabs = {}
 local function SetActiveTab(index)
     PlaySound("igMainMenuOptionCheckBoxOn")
+    frame.currentTab = index
+    
     for i, tab in ipairs(tabs) do
         if i == index then
             tab.isSelected = true
@@ -531,9 +691,9 @@ local function SetActiveTab(index)
     end
 end
 
-tabs[1] = CreateStyledTabButton(tabBackground, "Overview", 1, SetActiveTab)
-tabs[2] = CreateStyledTabButton(tabBackground, "Score", 2, SetActiveTab)
-tabs[3] = CreateStyledTabButton(tabBackground, "Leaderboard", 3, SetActiveTab)
+tabs[1] = CreateStyledTabButton(tabBackground, GetText("UI", "Overview"), 1, SetActiveTab)
+tabs[2] = CreateStyledTabButton(tabBackground, GetText("UI", "Score"), 2, SetActiveTab)
+tabs[3] = CreateStyledTabButton(tabBackground, GetText("UI", "Leaderboard"), 3, SetActiveTab)
 
 SetActiveTab(1)
 
@@ -563,25 +723,26 @@ function MythicHandlers.ReceiveLeaderboard(_, topThree, dungeonTop)
         if button then
             button:SetScript("OnEnter", function(self)
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                GameTooltip:SetText(DUNGEONS[mapId].name or ("Dungeon " .. mapId))
+                GameTooltip:SetText(GetText("Dungeons", DUNGEONS[mapId].originalName))
                 
                 if top then
-                    GameTooltip:AddLine("Highest Score:", 1, 1, 0)
+                    GameTooltip:AddLine(GetText("UI", "Highest Score:"), 1, 1, 0)
                     GameTooltip:AddLine("  " .. top.name .. ": " .. top.score, 1, 1, 1)
                     if top.highestKey and top.highestKey > 0 then
-                        GameTooltip:AddLine("Highest Key +" .. top.highestKey .. " by:", 1, 1, 0)
+                        local highestKeyText = GetText("UI", "Highest Key +%d by:"):format(top.highestKey)
+                        GameTooltip:AddLine(highestKeyText, 1, 1, 0)
                         if top.keyHolderNames and #top.keyHolderNames > 0 then
                             for _, memberName in ipairs(top.keyHolderNames) do
                                 GameTooltip:AddLine("  " .. memberName, 0.8, 1, 0.8)
                             end
                         else
-                            GameTooltip:AddLine("  Unknown", 0.8, 1, 0.8)
+                            GameTooltip:AddLine("  " .. GetText("UI", "Unknown"), 0.8, 1, 0.8)
                         end
                     else
-                        GameTooltip:AddLine("Highest Key: None completed in time", 0.7, 0.7, 0.7)
+                        GameTooltip:AddLine(GetText("UI", "Highest Key: None completed in time"), 0.7, 0.7, 0.7)
                     end
                 else
-                    GameTooltip:AddLine("No records available", 0.7, 0.7, 0.7)
+                    GameTooltip:AddLine(GetText("UI", "No records available"), 0.7, 0.7, 0.7)
                 end
                 GameTooltip:Show()
             end)
@@ -1033,13 +1194,13 @@ function MythicHandlers.ShowVaultGUI(_, item1, item2, item3, tier1, tier2, tier3
 
     local title = VaultFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
     title:SetPoint("TOP", VaultFrame, "TOP", 0, -40)
-    title:SetText("Mythic+ Vault")
+    title:SetText(GetText("UI", "Mythic+ Vault"))
     title:SetFont("Fonts\\FRIZQT__.TTF", 20, "OUTLINE")
     title:SetTextColor(1, 0.82, 0)
     
     local subtitle = VaultFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     subtitle:SetPoint("TOP", title, "BOTTOM", 0, -2)
-    subtitle:SetText("Choose one item to collect")
+    subtitle:SetText(GetText("UI", "Choose item reward"))
     subtitle:SetFont("Fonts\\FRIZQT__.TTF", 14, "OUTLINE")
     subtitle:SetTextColor(0.9, 0.9, 0.9)
     
@@ -1067,7 +1228,7 @@ function MythicHandlers.ShowVaultGUI(_, item1, item2, item3, tier1, tier2, tier3
             
             local tierLabel = button:CreateFontString(nil, "OVERLAY", "GameFontNormal")
             tierLabel:SetPoint("TOP", button, "BOTTOM", 0, -5)
-            tierLabel:SetText("Tier " .. (tiers[i] or "?"))
+            tierLabel:SetText(GetText("UI", "Tier") .. " " .. (tiers[i] or "?"))
             tierLabel:SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE")
             tierLabel:SetTextColor(1, 0.82, 0)
             button.tierLabel = tierLabel
@@ -1148,7 +1309,7 @@ function MythicHandlers.ShowVaultGUI(_, item1, item2, item3, tier1, tier2, tier3
     
     local selectionText = VaultFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     selectionText:SetPoint("TOP", VaultFrame, "TOP", 0, -300)
-    selectionText:SetText("No item selected")
+    selectionText:SetText(GetText("UI", "No item selected"))
     selectionText:SetTextColor(1, 0.82, 0)
     selectionText:SetFont("Fonts\\FRIZQT__.TTF", 14, "")
     VaultFrame.selectionText = selectionText
@@ -1156,7 +1317,7 @@ function MythicHandlers.ShowVaultGUI(_, item1, item2, item3, tier1, tier2, tier3
     local confirmButton = CreateFrame("Button", nil, VaultFrame, "UIPanelButtonTemplate")
     confirmButton:SetSize(140, 30)
     confirmButton:SetPoint("BOTTOM", VaultFrame, "BOTTOM", 0, 40)
-    confirmButton:SetText("Select an Item")
+    confirmButton:SetText(GetText("UI", "Select an Item"))
     confirmButton:Disable()
     VaultFrame.confirmButton = confirmButton
     confirmButton:SetScript("OnClick", function(self)
@@ -1169,7 +1330,7 @@ function MythicHandlers.ShowVaultGUI(_, item1, item2, item3, tier1, tier2, tier3
     local cancelButton = CreateFrame("Button", nil, VaultFrame, "UIPanelButtonTemplate")
     cancelButton:SetSize(100, 30)
     cancelButton:SetPoint("BOTTOMLEFT", VaultFrame, "BOTTOMLEFT", 20, 40)
-    cancelButton:SetText("Cancel")
+    cancelButton:SetText(GetText("UI", "Cancel"))
     cancelButton:SetScript("OnClick", function(self)
         VaultFrame:Hide()
     end)
@@ -1203,12 +1364,15 @@ end
 
 function MythicHandlers.ReceiveTotalPoints(_, totalPoints, dungeonScores)
     if not frame.scoreText then return end
-    frame.scoreText:SetText(string.format("Total Score: %.2f", totalPoints or 0))
+    frame.scoreText:SetText(GetText("UI", "Total Score:") .. " " .. string.format("%.2f", totalPoints or 0))
     for i, mapId in ipairs(DUNGEON_ORDER) do
         local button = frame.scoreButtons[i]
         if button and button.scoreLabel then
             local score = dungeonScores and dungeonScores[tostring(mapId)] or 0
             button.scoreLabel:SetText(tostring(score))
+            if button.nameLabel and DUNGEONS[mapId] then
+                button.nameLabel:SetText(GetText("Dungeons", DUNGEONS[mapId].originalName))
+            end
         end
     end
 end

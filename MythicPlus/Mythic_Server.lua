@@ -1,5 +1,17 @@
 local AIO = AIO or require("AIO")
+local L = require("MythicPlus.Mythic_Locale")
 MythicHandlers = AIO.AddHandlers("AIO_Mythic", {})
+
+local function GetLocalizedText(player, category, key)
+    local localeIndex = player:GetDbLocaleIndex()
+    return L:Text(category, key, localeIndex)
+end
+
+function MythicHandlers.RequestLocaleData(player, category)
+    if category and L[category] and type(L[category]) == "table" then
+        AIO.Handle(player, "AIO_Mythic", "ReceiveLocaleData", category, L[category])
+    end
+end
 
 local AFFIX_EXCLUDE_CREATURES = {
     29830,      -- Living Mojo, Gundrak Boss Drakkari Colossus // would break its boss script
@@ -151,6 +163,15 @@ local DungeonNames = {
     [658] = "Pit of Saron",
     [668] = "Halls of Reflection"
 }
+
+local function GetLocalizedDungeonName(player, mapId)
+    local nameKey = DungeonNames[mapId]
+    if nameKey then
+        return GetLocalizedText(player, "Dungeons", nameKey)
+    else
+        return nameKey or ("Unknown (" .. mapId .. ")")
+    end
+end
 
 local mythicDungeonIds = {
     [574]=true, [575]=true, [576]=true, [578]=true, [595]=true,
@@ -722,8 +743,6 @@ local function UpdateVaultProgress(player, tier, wasSuccessful)
     
     if wasSuccessful then
         cache.successful_runs = cache.successful_runs + 1
-        
-        -- Update top 3 tiers
         local tiers = {cache.highest_tier_1, cache.highest_tier_2, cache.highest_tier_3}
         table.insert(tiers, tier)
         table.sort(tiers, function(a, b) return (a or 0) > (b or 0) end)
@@ -745,7 +764,7 @@ function WeeklyVaultInteract(event, go, player)
     local cache = PlayerVaultCache[guid]
     
     if not cache.can_collect or cache.has_collected then
-        player:SendBroadcastMessage("[Mythic+] No loot available in your vault this week.")
+        player:SendBroadcastMessage("[Mythic+] " .. GetLocalizedText(player, "UI", "No loot available in your vault this week."))
         return
     end
 
@@ -1332,8 +1351,8 @@ function Pedestal_OnGossipHello(_, player, creature)
     local keyData = PlayerKeysCache[guid]
     local tier = keyData and keyData.tier or 1
 
-    player:GossipMenuAddItem(5, string.format("Insert Keystone (Tier %d)", tier), 0, 100, false, "", 0)
-    player:GossipMenuAddItem(2, "Step away", 0, 999)
+    player:GossipMenuAddItem(5, GetLocalizedText(player, "UI", "Insert Keystone (Tier %d)"):format(tier), 0, 100, false, "", 0)
+    player:GossipMenuAddItem(2, GetLocalizedText(player, "UI", "Step away"), 0, 999)
     player:GossipSendMenu(1, creature)
 end
 
@@ -1919,10 +1938,10 @@ local function TryRewardMythicLoot(player, tier, upgradeLevel)
                 player:AddItem(reward.itemid, reward.amount)
                 local itemData = CacheItemTemplate(reward.itemid)
                 local itemName = itemData and itemData.name or "Unknown Item"
-                player:SendBroadcastMessage("[Mythic+] Reward: " .. itemName)
+                player:SendBroadcastMessage("[Mythic+] " .. GetLocalizedText(player, "UI", "Reward:") .. " " .. itemName)
             elseif reward.type == "spell" then
                 player:LearnSpell(reward.itemid)
-                player:SendBroadcastMessage("[Mythic+] Reward: Spell learned!")
+                player:SendBroadcastMessage("[Mythic+] " .. GetLocalizedText(player, "UI", "Reward: Spell learned!"))
             end
             if reward.additionalID and reward.additionalType then
                 if reward.additionalType == "item" then
@@ -1992,8 +2011,9 @@ function AwardMythicPoints(player, tier, duration, deaths, remainingTime)
     end
     
     player:SendBroadcastMessage(string.format(
-        "[Mythic+] Tier %d completed in %s%s.\nRating: %d (+%d gained, -%d death penalty)",
-        tier, dfmt, upgradeText, newRating, gainedRating, deathPenalty
+        "[Mythic+] %s\n%s",
+        GetLocalizedText(player, "UI", "Tier %d completed in %s%s."):format(tier, dfmt, upgradeText),
+        GetLocalizedText(player, "UI", "Rating: %d (+%d gained, -%d death penalty)"):format(newRating, gainedRating, deathPenalty)
     ))
 
     if not PlayerHasAnyKeystone(player) then
@@ -2004,8 +2024,8 @@ function AwardMythicPoints(player, tier, duration, deaths, remainingTime)
         CharDBQuery(string.format("REPLACE INTO character_mythic_keys (guid, mapId, tier) VALUES (%d, %d, %d)", guid, newMapId, newTier))
         
         player:AddItem(900100, 1)
-        player:SendBroadcastMessage(string.format("[Mythic+] You received a Tier %d Mythic Keystone!", newTier))
-        
+        player:SendBroadcastMessage(string.format("[Mythic+] %s", GetLocalizedText(player, "UI", "You received a Tier %d Mythic Keystone!"):format(newTier)))
+
         CreateLuaEvent(function()
             local p = GetPlayerByGUID(guid)
             if p then
@@ -2033,8 +2053,8 @@ function AwardOvertimeLoot(player, tier)
     AIO.Handle(player, "AIO_Mythic", "StopMythicTimerGUI", 0)
     
     player:SendBroadcastMessage(string.format(
-        "[Mythic+] Tier %d completed in overtime.",
-        tier
+        "[Mythic+] %s",
+        GetLocalizedText(player, "UI", "Tier %d completed in overtime."):format(tier)
     ))
 
     TryRewardMythicLoot(player, tier, 0)
@@ -2068,10 +2088,11 @@ function MythicHandlers.RequestMapNameAndTier(player)
     local keyData = PlayerKeysCache[guid]
 
     if keyData then
-        local mapName = DungeonNames[keyData.mapId] or ("Unknown (" .. keyData.mapId .. ")")
+        local mapName = GetLocalizedDungeonName(player, keyData.mapId)
         AIO.Handle(player, "AIO_Mythic", "ReceiveMapNameAndTier", mapName, keyData.tier)
     else
-        AIO.Handle(player, "AIO_Mythic", "ReceiveMapNameAndTier", "No Keystone", 0)
+        AIO.Handle(player, "AIO_Mythic", "ReceiveMapNameAndTier", 
+            GetLocalizedText(player, "UI", "No Keystone"), 0)
     end
 end
 
@@ -2089,7 +2110,7 @@ local function HeroicEndbossKeyReward(event, player, killed)
     if bossData and killed:GetEntry() == bossData.final then
         if not PlayerHasAnyKeystone(player) then
             player:AddItem(900100, 1)
-            player:SendBroadcastMessage("[Mythic+] You received a Mythic Keystone!")
+            player:SendBroadcastMessage(string.format("[Mythic+] %s", GetLocalizedText(player, "UI", "You received a Mythic Keystone!")))
         end
     end
 end
