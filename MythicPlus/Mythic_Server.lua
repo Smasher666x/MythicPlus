@@ -783,6 +783,7 @@ function WeeklyVaultInteract(event, go, player)
         end
     end
     
+    AIO.Handle(player, "AIO_Mythic", "QueryItemData", items[1], items[2], items[3])
     AIO.Handle(player, "AIO_Mythic", "ShowVaultGUI", items[1], items[2], items[3], tiers[1] or 0, tiers[2] or 0, tiers[3] or 0, itemLevels[1], itemLevels[2], itemLevels[3])
     
     local playerGUID = player:GetGUID()

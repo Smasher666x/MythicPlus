@@ -1177,7 +1177,50 @@ function MythicHandlers.UpdateVaultStatus(_, hasLoot)
     end
 end
 
+function MythicHandlers.QueryItemData(_, item1, item2, item3)
+    if not MythicHiddenTooltip then
+        MythicHiddenTooltip = CreateFrame("GameTooltip", "MythicHiddenTooltip", nil, "GameTooltipTemplate")
+        MythicHiddenTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+    end
+    
+    local function QueryItem(itemId)
+        if itemId and itemId > 0 then
+            MythicHiddenTooltip:SetHyperlink("item:"..itemId..":0:0:0:0:0:0:0")
+            MythicHiddenTooltip:Show()
+        end
+    end
+    
+    if item1 and item1 > 0 then
+        QueryItem(item1)
+    end
+    
+    if item2 and item2 > 0 then
+        local item2Timer = CreateFrame("Frame")
+        item2Timer.elapsed = 0
+        item2Timer:SetScript("OnUpdate", function(self, elapsed)
+            self.elapsed = self.elapsed + elapsed
+            if self.elapsed >= 0.1 then
+                QueryItem(item2)
+                self:SetScript("OnUpdate", nil)
+            end
+        end)
+    end
+    
+    if item3 and item3 > 0 then
+        local item3Timer = CreateFrame("Frame")
+        item3Timer.elapsed = 0
+        item3Timer:SetScript("OnUpdate", function(self, elapsed)
+            self.elapsed = self.elapsed + elapsed
+            if self.elapsed >= 0.2 then
+                QueryItem(item3)
+                self:SetScript("OnUpdate", nil)
+            end
+        end)
+    end
+end
+
 function MythicHandlers.ShowVaultGUI(_, item1, item2, item3, tier1, tier2, tier3)
+    AIO.Handle("AIO_Mythic", "QueryItemData", item1, item2, item3)
     if VaultFrame then
         VaultFrame:Hide()
     end
@@ -1267,13 +1310,19 @@ function MythicHandlers.ShowVaultGUI(_, item1, item2, item3, tier1, tier2, tier3
                 
                 local itemLink = select(2, GetItemInfo(items[i]))
                 if itemLink then
-                    GameTooltip:SetHyperlink(itemLink)
+                    GameTooltip:SetHyperlink(tostring(itemLink))
                 else
-                    GameTooltip:SetText("Loading...")
-                    C_Timer.After(0.1, function()
-                        local link = select(2, GetItemInfo(items[i]))
-                        if link and GameTooltip:IsOwned(self) then
-                            GameTooltip:SetHyperlink(link)
+                    print("Item link not found for item ID:", items[i])
+                    local tooltipTimer = CreateFrame("Frame")
+                    tooltipTimer.elapsed = 0
+                    tooltipTimer:SetScript("OnUpdate", function(frame, elapsed)
+                        frame.elapsed = frame.elapsed + elapsed
+                        if frame.elapsed >= 0.1 then
+                            local link = select(2, GetItemInfo(items[i]))
+                            if link and GameTooltip:IsOwned(self) then
+                                GameTooltip:SetHyperlink(link)
+                            end
+                            frame:SetScript("OnUpdate", nil)
                         end
                     end)
                 end
