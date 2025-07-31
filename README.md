@@ -1,12 +1,6 @@
-<p align="center">
-  <a href="https://youtu.be/24C6Ppk8hkA" target="_blank">
-    <img src="https://img.youtube.com/vi/24C6Ppk8hkA/0.jpg" alt="Mythic+ Installation & Customization Video Guide" width="480">
-  </a>
-</p>
+## Mythic+ Installation & Customization Guide on YouTube
 
-<p align="center">
-  <b><a href="https://youtu.be/24C6Ppk8hkA" target="_blank">▶️ Watch the full Mythic+ Installation & Customization Guide on YouTube</a></b>
-</p>
+[![▶️ Watch the full Mythic+ Installation & Customization Guide on YouTube](https://img.youtube.com/vi/24C6Ppk8hkA/0.jpg)](https://youtu.be/24C6Ppk8hkA)
 
 ---
 
