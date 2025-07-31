@@ -26,19 +26,6 @@ local MYTHIC_LOOT_BRACKETS = {
     ["pets"] = {5, 6, 7, 8, 9},
     ["all"] = "all"
 }
--- You can rename the brackets, add more, and design it how you like, make sure you add the bracket you want to attack to the loot item in the world_mythic_loot table.
--- Example:
--- INSERT INTO world_mythic_loot (itemid, itemname, loot_bracket, chancePercent) VALUES
--- (12354, 'Palomino Bridle', 'low_tier', 0.2),        -- Uses your bracket name
--- (13328, 'Black Ram', 'mid_tier', 0.1),                -- Uses your bracket name
--- (22691, 'Corrupted Ashbringer', 'high_tier', 0.005); -- Uses your bracket name
-
--- you can also set it the bracket direclty in the world_mythic_loot table, like this:
--- INSERT INTO world_mythic_loot (itemid, loot_bracket) VALUES
--- (12354, '1-3'),     -- Tiers 1 through 3
--- (13328, '10+'),     -- Tier 10 and above
--- (22691, '50'),      -- Tier 50 only
--- (40110, 'all');     -- All tiers
 
 local MythicRewardConfig = {
     pets      = true,
