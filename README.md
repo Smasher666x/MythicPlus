@@ -1,3 +1,24 @@
+<p align="center">
+  <a href="https://youtu.be/24C6Ppk8hkA" target="_blank">
+    <img src="https://img.youtube.com/vi/24C6Ppk8hkA/0.jpg" alt="Mythic+ Installation & Customization Video Guide" width="480">
+  </a>
+</p>
+
+<p align="center">
+  <b><a href="https://youtu.be/24C6Ppk8hkA" target="_blank">▶️ Watch the full Mythic+ Installation & Customization Guide on YouTube</a></b>
+</p>
+
+---
+
+## Support, Issues & Tips
+
+If you enjoy this project and want to support further development, you can leave a tip at [ko-fi.com/huptiq](https://ko-fi.com/huptiq).
+
+If you encounter any bugs, broken code, or unexpected behavior, **please create an issue** on this repository so it can be fixed!  
+Feature requests and suggestions are also very welcome—feel free to open an issue if you have an idea for improvement.
+
+---
+
 # MythicPlus for AzerothCore (Eluna + AIO)
 
 ## Disclaimer
@@ -246,15 +267,6 @@ The vault system automatically generates rewards every Wednesday at 8 AM server 
 5. **Progression:** Your keystone upgrades (+1 to +3) or downgrades (-1) based on performance.
 6. **Weekly Rewards:** Collect vault rewards based on your highest completed keystones each week.
 7. **Finding the Vault:** The Mythic Vault can be found in Dalaran, in front of the Violet Hold dungeon entrance, on the circular platform to the left side.
-
----
-
-## Support, Issues & Tips
-
-If you enjoy this project and want to support further development, you can leave a tip at [ko-fi.com/huptiq](https://ko-fi.com/huptiq).
-
-If you encounter any bugs, broken code, or unexpected behavior, **please create an issue** on this repository so it can be fixed!  
-Feature requests and suggestions are also very welcome—feel free to open an issue if you have an idea for improvement.
 
 ---
 
