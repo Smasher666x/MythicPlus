@@ -39,12 +39,12 @@ function MythicHandlers.ReceiveLocaleData(_, category, entries)
     end
 end
 
-function GetText(category, key)
-    local localeIndex = GetLocale() and GetLocaleIndex() or 0
+function MythicGetText(category, key)
+    local localeIndex = GetLocale() and MythicGetLocaleIndex() or 0
     return L:Text(category, key, localeIndex)
 end
 
-function GetLocaleIndex()
+function MythicGetLocaleIndex()
     local locale = GetLocale()
     local localeMap = {
         ["enUS"] = 0, ["enGB"] = 0,
@@ -63,7 +63,7 @@ end
 function UpdateLocalizedElements()
     if DUNGEONS then
         for mapId, dungeonData in pairs(DUNGEONS) do
-            dungeonData.name = GetText("Dungeons", dungeonData.originalName)
+            dungeonData.name = MythicGetText("Dungeons", dungeonData.originalName)
         end
     end
     
@@ -71,23 +71,23 @@ function UpdateLocalizedElements()
         if tabs then
             for i, tab in ipairs(tabs) do
                 if i == 1 then
-                    tab:SetText(GetText("UI", "Overview"))
+                    tab:SetText(MythicGetText("UI", "Overview"))
                 elseif i == 2 then
-                    tab:SetText(GetText("UI", "Score"))
+                    tab:SetText(MythicGetText("UI", "Score"))
                 elseif i == 3 then
-                    tab:SetText(GetText("UI", "Leaderboard"))
+                    tab:SetText(MythicGetText("UI", "Leaderboard"))
                 end
             end
         end
         
         if MythicPlusFrame.overviewTitle then
-            MythicPlusFrame.overviewTitle:SetText(GetText("UI", "Overview"))
+            MythicPlusFrame.overviewTitle:SetText(MythicGetText("UI", "Overview"))
         end
         if MythicPlusFrame.scoreTitle then
-            MythicPlusFrame.scoreTitle:SetText(GetText("UI", "Score"))
+            MythicPlusFrame.scoreTitle:SetText(MythicGetText("UI", "Score"))
         end
         if MythicPlusFrame.leaderboardTitle then
-            MythicPlusFrame.leaderboardTitle:SetText(GetText("UI", "Leaderboard"))
+            MythicPlusFrame.leaderboardTitle:SetText(MythicGetText("UI", "Leaderboard"))
         end
     
     if frame and frame.affixButtons then
@@ -98,11 +98,11 @@ function UpdateLocalizedElements()
                      button.affixName == frame.currentAffixes[2] or 
                      button.affixName == frame.currentAffixes[3])
                 
-                button.label:SetText((isActive and "|cff00ff00" or "") .. GetText("UI", button.affixName))
+                button.label:SetText((isActive and "|cff00ff00" or "") .. MythicGetText("UI", button.affixName))
                 button:SetScript("OnEnter", function(self)
                     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
                     local color = AFFIXES[button.affixName].color or "|cffffffff"
-                    GameTooltip:SetText(color .. GetText("UI", button.affixName) .. "|r")
+                    GameTooltip:SetText(color .. MythicGetText("UI", button.affixName) .. "|r")
                     GameTooltip:AddLine(AFFIXES[button.affixName].description or "", 1, 1, 1, true)
                     GameTooltip:Show()
                 end)
@@ -123,7 +123,7 @@ function UpdateLocalizedElements()
             if mapId then
                 button:SetScript("OnEnter", function(self)
                     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                    GameTooltip:SetText(GetText("Dungeons", DUNGEONS[mapId].originalName))
+                    GameTooltip:SetText(MythicGetText("Dungeons", DUNGEONS[mapId].originalName))
                     GameTooltip:Show()
                 end)
             end
@@ -192,7 +192,7 @@ function MythicHandlers.ReceiveMapNameAndTier(_, mapName, tier)
     local originalMapName = mapName
     for id, dungeon in pairs(DUNGEONS) do
         if dungeon.originalName == mapName then
-            mapName = GetText("Dungeons", dungeon.originalName)
+            mapName = MythicGetText("Dungeons", dungeon.originalName)
             break
         end
     end
@@ -202,7 +202,7 @@ function MythicHandlers.ReceiveMapNameAndTier(_, mapName, tier)
 
     if GameTooltip:IsShown() then
         local name, link = GameTooltip:GetItem()
-        if link and name and (string.find(name, "Mythic Keystone") or string.find(name, GetText("Items", "Mythic Keystone"))) then
+        if link and name and (string.find(name, "Mythic Keystone") or string.find(name, MythicGetText("Items", "Mythic Keystone"))) then
             GameTooltip:Hide()
             GameTooltip:SetOwner(UIParent, "ANCHOR_CURSOR")
             GameTooltip:SetHyperlink(link)
@@ -214,7 +214,7 @@ local lineAdded = false
 function OnTooltipSetItem(tooltip)
     local name, link = tooltip:GetItem()
     local englishName = "Mythic Keystone"
-    local localizedName = GetText("Items", "Mythic Keystone")
+    local localizedName = MythicGetText("Items", "Mythic Keystone")
     
     if not name or (not string.find(name, englishName) and not string.find(name, localizedName)) then 
         return 
@@ -229,7 +229,7 @@ function OnTooltipSetItem(tooltip)
     local line = _G[tooltip:GetName() .. "TextLeft2"]
     if line then
         local tierText = lastTierLevel and lastTierLevel ~= "Loading..." and ("+" .. lastTierLevel) or ""
-        line:SetText("|cffa335ee" .. GetText("UI", "Mythic") .. tierText .. " |r" .. (lastMapName or "Loading..."))
+        line:SetText("|cffa335ee" .. MythicGetText("UI", "Mythic") .. tierText .. " |r" .. (lastMapName or "Loading..."))
         line:Show()
         tooltip:Show()
     end
@@ -264,9 +264,9 @@ mythicMiniButton:SetPoint("TOPLEFT", Minimap, "BOTTOMLEFT", -20, 70)
 
 mythicMiniButton:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-    GameTooltip:SetText(GetText("UI", "Mythic+"))
+    GameTooltip:SetText(MythicGetText("UI", "Mythic+"))
     if self.hasVaultLoot then
-        GameTooltip:AddLine(GetText("UI", "There is loot in your Vault in Dalaran City"), 1, 1, 0)
+        GameTooltip:AddLine(MythicGetText("UI", "There is loot in your Vault in Dalaran City"), 1, 1, 0)
     end
     GameTooltip:Show()
 end)
@@ -284,10 +284,10 @@ end)
 
 function MythicHandlers.ReceiveWeeklyAffixes(_, affix1, affix2, affix3)
     local function colorize(name)
-        return (AFFIXES[name].color or "|cffffffff") .. GetText("UI", name) .. "|r"
+        return (AFFIXES[name].color or "|cffffffff") .. MythicGetText("UI", name) .. "|r"
     end
 
-    local text = GetText("UI", "This week's affixes:") .. " " ..
+    local text = MythicGetText("UI", "This week's affixes:") .. " " ..
         colorize(affix1) .. ", " ..
         colorize(affix2) .. ", " ..
         colorize(affix3)
@@ -300,7 +300,7 @@ function MythicHandlers.ReceiveWeeklyAffixes(_, affix1, affix2, affix3)
         local name = button.affixName
         local label = button.label
         local isActive = name == affix1 or name == affix2 or name == affix3
-        label:SetText((isActive and "|cff00ff00" or "") .. GetText("UI", name))
+        label:SetText((isActive and "|cff00ff00" or "") .. MythicGetText("UI", name))
     end
 end
 
@@ -435,17 +435,17 @@ local function CreateBannerTitle(parent, text, anchorPoint)
     return banner, title
 end
 
-local overviewBanner, overviewTitle = CreateBannerTitle(frame, GetText("UI", "Overview"), 0)
+local overviewBanner, overviewTitle = CreateBannerTitle(frame, MythicGetText("UI", "Overview"), 0)
 frame.overviewTitle = overviewTitle
 frame.overviewBanner = overviewBanner
 
-local scoreBanner, scoreTitle = CreateBannerTitle(frame, GetText("UI", "Score"), 0)
+local scoreBanner, scoreTitle = CreateBannerTitle(frame, MythicGetText("UI", "Score"), 0)
 frame.scoreTitle = scoreTitle
 frame.scoreBanner = scoreBanner
 scoreBanner:Hide()
 scoreTitle:Hide()
 
-local leaderboardBanner, leaderboardTitle = CreateBannerTitle(frame, GetText("UI", "Leaderboard"), 0)
+local leaderboardBanner, leaderboardTitle = CreateBannerTitle(frame, MythicGetText("UI", "Leaderboard"), 0)
 frame.leaderboardTitle = leaderboardTitle
 frame.leaderboardBanner = leaderboardBanner
 leaderboardBanner:Hide()
@@ -455,7 +455,7 @@ local affixText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 affixText:SetPoint("TOP", overviewBanner, "BOTTOM", 0, -10)
 affixText:SetJustifyH("CENTER")
 affixText:SetFont("Fonts\\FRIZQT__.TTF", 14, "OUTLINE")
-affixText:SetText(GetText("UI", "This week's affixes:") .. " Loading...")
+affixText:SetText(MythicGetText("UI", "This week's affixes:") .. " Loading...")
 frame.affixText = affixText
 
 local scoreText = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -691,9 +691,9 @@ local function SetActiveTab(index)
     end
 end
 
-tabs[1] = CreateStyledTabButton(tabBackground, GetText("UI", "Overview"), 1, SetActiveTab)
-tabs[2] = CreateStyledTabButton(tabBackground, GetText("UI", "Score"), 2, SetActiveTab)
-tabs[3] = CreateStyledTabButton(tabBackground, GetText("UI", "Leaderboard"), 3, SetActiveTab)
+tabs[1] = CreateStyledTabButton(tabBackground, MythicGetText("UI", "Overview"), 1, SetActiveTab)
+tabs[2] = CreateStyledTabButton(tabBackground, MythicGetText("UI", "Score"), 2, SetActiveTab)
+tabs[3] = CreateStyledTabButton(tabBackground, MythicGetText("UI", "Leaderboard"), 3, SetActiveTab)
 
 SetActiveTab(1)
 
@@ -723,26 +723,26 @@ function MythicHandlers.ReceiveLeaderboard(_, topThree, dungeonTop)
         if button then
             button:SetScript("OnEnter", function(self)
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                GameTooltip:SetText(GetText("Dungeons", DUNGEONS[mapId].originalName))
+                GameTooltip:SetText(MythicGetText("Dungeons", DUNGEONS[mapId].originalName))
                 
                 if top then
-                    GameTooltip:AddLine(GetText("UI", "Highest Score:"), 1, 1, 0)
+                    GameTooltip:AddLine(MythicGetText("UI", "Highest Score:"), 1, 1, 0)
                     GameTooltip:AddLine("  " .. top.name .. ": " .. top.score, 1, 1, 1)
                     if top.highestKey and top.highestKey > 0 then
-                        local highestKeyText = GetText("UI", "Highest Key +%d by:"):format(top.highestKey)
+                        local highestKeyText = MythicGetText("UI", "Highest Key +%d by:"):format(top.highestKey)
                         GameTooltip:AddLine(highestKeyText, 1, 1, 0)
                         if top.keyHolderNames and #top.keyHolderNames > 0 then
                             for _, memberName in ipairs(top.keyHolderNames) do
                                 GameTooltip:AddLine("  " .. memberName, 0.8, 1, 0.8)
                             end
                         else
-                            GameTooltip:AddLine("  " .. GetText("UI", "Unknown"), 0.8, 1, 0.8)
+                            GameTooltip:AddLine("  " .. MythicGetText("UI", "Unknown"), 0.8, 1, 0.8)
                         end
                     else
-                        GameTooltip:AddLine(GetText("UI", "Highest Key: None completed in time"), 0.7, 0.7, 0.7)
+                        GameTooltip:AddLine(MythicGetText("UI", "Highest Key: None completed in time"), 0.7, 0.7, 0.7)
                     end
                 else
-                    GameTooltip:AddLine(GetText("UI", "No records available"), 0.7, 0.7, 0.7)
+                    GameTooltip:AddLine(MythicGetText("UI", "No records available"), 0.7, 0.7, 0.7)
                 end
                 GameTooltip:Show()
             end)
@@ -1237,13 +1237,13 @@ function MythicHandlers.ShowVaultGUI(_, item1, item2, item3, tier1, tier2, tier3
 
     local title = VaultFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
     title:SetPoint("TOP", VaultFrame, "TOP", 0, -40)
-    title:SetText(GetText("UI", "Mythic+ Vault"))
+    title:SetText(MythicGetText("UI", "Mythic+ Vault"))
     title:SetFont("Fonts\\FRIZQT__.TTF", 20, "OUTLINE")
     title:SetTextColor(1, 0.82, 0)
     
     local subtitle = VaultFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     subtitle:SetPoint("TOP", title, "BOTTOM", 0, -2)
-    subtitle:SetText(GetText("UI", "Choose item reward"))
+    subtitle:SetText(MythicGetText("UI", "Choose item reward"))
     subtitle:SetFont("Fonts\\FRIZQT__.TTF", 14, "OUTLINE")
     subtitle:SetTextColor(0.9, 0.9, 0.9)
     
@@ -1271,7 +1271,7 @@ function MythicHandlers.ShowVaultGUI(_, item1, item2, item3, tier1, tier2, tier3
             
             local tierLabel = button:CreateFontString(nil, "OVERLAY", "GameFontNormal")
             tierLabel:SetPoint("TOP", button, "BOTTOM", 0, -5)
-            tierLabel:SetText(GetText("UI", "Tier") .. " " .. (tiers[i] or "?"))
+            tierLabel:SetText(MythicGetText("UI", "Tier") .. " " .. (tiers[i] or "?"))
             tierLabel:SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE")
             tierLabel:SetTextColor(1, 0.82, 0)
             button.tierLabel = tierLabel
@@ -1358,7 +1358,7 @@ function MythicHandlers.ShowVaultGUI(_, item1, item2, item3, tier1, tier2, tier3
     
     local selectionText = VaultFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     selectionText:SetPoint("TOP", VaultFrame, "TOP", 0, -300)
-    selectionText:SetText(GetText("UI", "No item selected"))
+    selectionText:SetText(MythicGetText("UI", "No item selected"))
     selectionText:SetTextColor(1, 0.82, 0)
     selectionText:SetFont("Fonts\\FRIZQT__.TTF", 14, "")
     VaultFrame.selectionText = selectionText
@@ -1366,7 +1366,7 @@ function MythicHandlers.ShowVaultGUI(_, item1, item2, item3, tier1, tier2, tier3
     local confirmButton = CreateFrame("Button", nil, VaultFrame, "UIPanelButtonTemplate")
     confirmButton:SetSize(140, 30)
     confirmButton:SetPoint("BOTTOM", VaultFrame, "BOTTOM", 0, 40)
-    confirmButton:SetText(GetText("UI", "Select an Item"))
+    confirmButton:SetText(MythicGetText("UI", "Select an Item"))
     confirmButton:Disable()
     VaultFrame.confirmButton = confirmButton
     confirmButton:SetScript("OnClick", function(self)
@@ -1379,7 +1379,7 @@ function MythicHandlers.ShowVaultGUI(_, item1, item2, item3, tier1, tier2, tier3
     local cancelButton = CreateFrame("Button", nil, VaultFrame, "UIPanelButtonTemplate")
     cancelButton:SetSize(100, 30)
     cancelButton:SetPoint("BOTTOMLEFT", VaultFrame, "BOTTOMLEFT", 20, 40)
-    cancelButton:SetText(GetText("UI", "Cancel"))
+    cancelButton:SetText(MythicGetText("UI", "Cancel"))
     cancelButton:SetScript("OnClick", function(self)
         VaultFrame:Hide()
     end)
@@ -1413,14 +1413,14 @@ end
 
 function MythicHandlers.ReceiveTotalPoints(_, totalPoints, dungeonScores)
     if not frame.scoreText then return end
-    frame.scoreText:SetText(GetText("UI", "Total Score:") .. " " .. string.format("%.2f", totalPoints or 0))
+    frame.scoreText:SetText(MythicGetText("UI", "Total Score:") .. " " .. string.format("%.2f", totalPoints or 0))
     for i, mapId in ipairs(DUNGEON_ORDER) do
         local button = frame.scoreButtons[i]
         if button and button.scoreLabel then
             local score = dungeonScores and dungeonScores[tostring(mapId)] or 0
             button.scoreLabel:SetText(tostring(score))
             if button.nameLabel and DUNGEONS[mapId] then
-                button.nameLabel:SetText(GetText("Dungeons", DUNGEONS[mapId].originalName))
+                button.nameLabel:SetText(MythicGetText("Dungeons", DUNGEONS[mapId].originalName))
             end
         end
     end
