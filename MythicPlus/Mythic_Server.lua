@@ -97,40 +97,140 @@ local WEAPON_SUBCLASS_TO_SKILL = {
     [19] = 228,
 }
 
-local MythicBosses = {
-    [574] = { -- Utgarde Keep
-        bosses = {23953, 24200, 24201, 23954}, final = 23954, names = {"Prince Keleseth", "Skarvald the Constructor", "Dalronn the Controller", "Ingvar the Plunderer"}, timer = 1500, enemies = 45},
-    [575] = { -- Utgarde Pinnacle
-        bosses = {26668, 26687, 26693, 26861}, final = 26861, names = {"Svala Sorrowgrave", "Gortok Palehoof", "Skadi the Ruthless", "King Ymiron"}, timer = 1500, enemies = 52},
-    [576] = { -- The Nexus
-        bosses = {26731, 26763, 26794, 26723}, final = 26723, names = {"Grand Magus Telestra", "Anomalus", "Ormorok the Tree-Shaper", "Keristrasza"}, timer = 1500, enemies = 38},
-    [599] = { -- Halls of Stone
-        bosses = {27977, 27975, 27978}, final = 27978, names = {"Krystallus", "Maiden of Grief", "Sjonnir The Ironshaper"}, timer = 1500, enemies = 41},
-    [600] = { -- Drak'Tharon Keep
-        bosses = {26630, 26631, 27483, 26632}, final = 26632, names = {"Trollgore", "Novos the Summoner", "King Dred", "The Prophet Tharon'ja"}, timer = 1500, enemies = 48},
-    [601] = { -- Azjol-Nerub
-        bosses = {28684, 28921, 29120}, final = 29120, names = {"Krik'thir the Gatewatcher", "Hadronox", "Anub'arak"}, timer = 1500, enemies = 33},
-    [602] = { -- Halls of Lightning
-        bosses = {28586, 28587, 28546, 28923}, final = 28923, names = {"General Bjarngrim", "Volkhan", "Ionar", "Loken"}, timer = 1500, enemies = 42},
-    [604] = { -- Gundrak
-        bosses = {29304, 29573, 29305, 29932, 29306}, final = 29306, names = {"Slad'ran", "Drakkari Colossus", "Moorabi", "Eck the Ferocious", "Gal'darah"}, timer = 1500, enemies = 55},
-    [608] = { -- The Violet Hold
-        bosses = {31134}, final = 31134, names = {"Cyanigosa"}, timer = 1500, enemies = 0},
-    [619] = { -- Ahn'kahet: The Old Kingdom
-        bosses = {29309, 29308, 29310, 30258, 29311}, final = 29311, names = {"Elder Nadox", "Prince Taldaram", "Jedoga Shadowseeker", "Amanitar", "Herald Volazj"}, timer = 1500, enemies = 46},
-    [578] = { -- The Oculus
-        bosses = {27654, 27447, 27655, 27656}, final = 27656, names = {"Drakos the Interrogator", "Varos Cloudstrider", "Mage-Lord Urom", "Ley-Guardian Eregos"}, timer = 1500, enemies = 35},
-    [595] = { -- The Culling of Stratholme
-        bosses = {26529, 26530, 26532, 26533}, final = 26533, names = {"Meathook", "Salramm the Fleshcrafter", "Chrono-Lord Epoch", "Mal'Ganis"}, timer = 1500, enemies = 58},
-    [650] = { -- Trial of the Champion
-        bosses = {35451}, final = 35451, names = {"The Black Knight"}, timer = 1500, enemies = 0},
-    [632] = { -- Forge of Souls
-        bosses = {36497, 36502}, final = 36502, names = {"Bronjahm", "Devourer of Souls"}, timer = 1500, enemies = 32},
-    [658] = { -- Pit of Saron
-        bosses = {36494, 36476, 36658}, final = 36658, names = {"Forgemaster Garfrost", "Ick", "Scourgelord Tyrannus"}, timer = 1500, enemies = 44},
-    [668] = { -- Halls of Reflection
-        bosses = {38112, 38113, 36954}, final = 36954, names = {"Falric", "Marwyn", "The Lich King"}, timer = 1500, enemies = 0}
+local BossNameCache = {
+    ["enUS"] = {},
+    ["deDE"] = {},
+    ["esES"] = {},
+    ["esMX"] = {},
+    ["frFR"] = {},
+    ["koKR"] = {},
+    ["ruRU"] = {},
+    ["zhCN"] = {},
+    ["zhTW"] = {}
 }
+
+local function LoadBossNames()
+    local bossEntries = {}
+    local entriesStr = ""
+    
+    for mapId, data in pairs(MythicBosses) do
+        if data.bosses then
+            for _, entry in ipairs(data.bosses) do
+                if not bossEntries[entry] then
+                    bossEntries[entry] = true
+                    if entriesStr ~= "" then
+                        entriesStr = entriesStr .. ","
+                    end
+                    entriesStr = entriesStr .. entry
+                end
+            end
+        end
+    end
+    
+    if entriesStr == "" then
+        print("[Mythic+] No boss entries found to load names for")
+        return
+    end
+    
+    local query = WorldDBQuery("SELECT entry, name FROM creature_template WHERE entry IN (" .. entriesStr .. ")")
+    local count = 0
+    
+    if query then
+        repeat
+            local entry = query:GetUInt32(0)
+            local name = query:GetString(1)
+            BossNameCache["enUS"][entry] = name
+            count = count + 1
+        until not query:NextRow()
+    end
+    
+    local locales = {"deDE", "esES", "esMX", "frFR", "koKR", "ruRU", "zhCN", "zhTW"}
+    
+    for _, locale in ipairs(locales) do
+        local localeQuery = WorldDBQuery(
+            "SELECT entry, Name FROM creature_template_locale WHERE entry IN (" .. 
+            entriesStr .. ") AND locale = '" .. locale .. "'"
+        )
+        
+        if localeQuery then
+            local localeCount = 0
+            repeat
+                local entry = localeQuery:GetUInt32(0)
+                local name = localeQuery:GetString(1)
+                BossNameCache[locale][entry] = name
+                localeCount = localeCount + 1
+            until not localeQuery:NextRow()
+        end
+    end
+end
+
+local function GetLocalizedBossNames(player, mapId)
+    if not MythicBosses[mapId] or not MythicBosses[mapId].bosses then
+        return {}
+    end
+    
+    local localeIndex = player:GetDbLocaleIndex()
+    local localeMap = {
+        [0] = "enUS", -- Default English
+        [1] = "koKR", -- Korean
+        [2] = "frFR", -- French
+        [3] = "deDE", -- German  
+        [4] = "zhCN", -- Chinese (China)
+        [5] = "zhTW", -- Chinese (Taiwan)
+        [6] = "esES", -- Spanish (Spain)
+        [7] = "esMX", -- Spanish (Mexico)
+        [8] = "ruRU"  -- Russian
+    }
+    
+    local locale = localeMap[localeIndex] or "enUS"
+    local bossNames = {}
+    
+    for _, bossId in ipairs(MythicBosses[mapId].bosses) do
+        local name = BossNameCache[locale][bossId] or 
+                    BossNameCache["enUS"][bossId] or 
+                    ("Boss #" .. bossId)
+        table.insert(bossNames, name)
+    end
+    
+    return bossNames
+end
+
+MythicBosses = {
+    [574] = { -- Utgarde Keep
+        bosses = {23953, 24200, 24201, 23954}, final = 23954, timer = 1500, enemies = 45},
+    [575] = { -- Utgarde Pinnacle
+        bosses = {26668, 26687, 26693, 26861}, final = 26861, timer = 1500, enemies = 52},
+    [576] = { -- The Nexus
+        bosses = {26731, 26763, 26794, 26723}, final = 26723, timer = 1500, enemies = 38},
+    [599] = { -- Halls of Stone
+        bosses = {27977, 27975, 27978}, final = 27978, timer = 1500, enemies = 41},
+    [600] = { -- Drak'Tharon Keep
+        bosses = {26630, 26631, 27483, 26632}, final = 26632, timer = 1500, enemies = 48},
+    [601] = { -- Azjol-Nerub
+        bosses = {28684, 28921, 29120}, final = 29120, timer = 1500, enemies = 33},
+    [602] = { -- Halls of Lightning
+        bosses = {28586, 28587, 28546, 28923}, final = 28923, timer = 1500, enemies = 42},
+    [604] = { -- Gundrak
+        bosses = {29304, 29573, 29305, 29932, 29306}, final = 29306, timer = 1500, enemies = 55},
+    [608] = { -- The Violet Hold
+        bosses = {31134}, final = 31134, timer = 1500, enemies = 0},
+    [619] = { -- Ahn'kahet: The Old Kingdom
+        bosses = {29309, 29308, 29310, 30258, 29311}, final = 29311, timer = 1500, enemies = 46},
+    [578] = { -- The Oculus
+        bosses = {27654, 27447, 27655, 27656}, final = 27656, timer = 1500, enemies = 35},
+    [595] = { -- The Culling of Stratholme
+        bosses = {26529, 26530, 26532, 26533}, final = 26533, timer = 1500, enemies = 58},
+    [650] = { -- Trial of the Champion
+        bosses = {35451}, final = 35451, timer = 1500, enemies = 0},
+    [632] = { -- Forge of Souls
+        bosses = {36497, 36502}, final = 36502, timer = 1500, enemies = 32},
+    [658] = { -- Pit of Saron
+        bosses = {36494, 36476, 36658}, final = 36658, timer = 1500, enemies = 44},
+    [668] = { -- Halls of Reflection
+        bosses = {38112, 38113, 36954}, final = 36954, timer = 1500, enemies = 0}
+}
+
+LoadBossNames()
 
 local DungeonNames = {
     [574] = "Utgarde Keep",
@@ -1510,7 +1610,7 @@ function Pedestal_OnGossipSelect(_, player, _, _, intid)
                 for _, guid in ipairs(memberGuids) do
                     local member = GetPlayerByGUID(guid)
                     if member and member:IsInWorld() and member:GetMapId() == mapId then
-                        AIO.Handle(member, "AIO_Mythic", "StartMythicTimerGUI", mapId, tier, bossData.timer or 900, bossData.names or {}, potentialGain, bossData.enemies or 50)
+                        AIO.Handle(member, "AIO_Mythic", "StartMythicTimerGUI", mapId, tier, bossData.timer or 900, GetLocalizedBossNames(member, mapId), potentialGain, bossData.enemies or 50)
                     end
                 end
             end
