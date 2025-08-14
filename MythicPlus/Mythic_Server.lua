@@ -905,7 +905,7 @@ function MythicHandlers.SelectVaultItem(player, itemIndex)
     local cache = PlayerVaultCache[guid]
     
     if not cache or not cache.can_collect or cache.has_collected then
-        player:SendBroadcastMessage("[Mythic+] No loot available to collect.")
+        player:SendBroadcastMessage("[Mythic+] " .. GetLocalizedText(player, "UI", "No loot available to collect."))
         return
     end
     
@@ -1229,7 +1229,7 @@ local function DowngradeKeystoneOnFail(player, tier)
             PlayerKeysCache[guid] = {mapId = newMapId, tier = newTier}
             CharDBQuery(string.format("REPLACE INTO character_mythic_keys (guid, mapId, tier) VALUES (%d, %d, %d)", guid, newMapId, newTier))
             player:AddItem(900100, 1)
-            player:SendBroadcastMessage(string.format("[Mythic+] Your keystone has been downgraded to Tier %d.", newTier))
+            player:SendBroadcastMessage(string.format("[Mythic+] " .. GetLocalizedText(player, "UI", "Your keystone has been downgraded to Tier %d."), newTier))
             
             CreateLuaEvent(function()
                 local p = GetPlayerByGUID(guid)
@@ -1238,7 +1238,7 @@ local function DowngradeKeystoneOnFail(player, tier)
                 end
             end, 500, 1)
         else
-            player:SendBroadcastMessage("[Mythic+] Your keystone was destroyed.")
+            player:SendBroadcastMessage("[Mythic+] " .. GetLocalizedText(player, "UI", "Your keystone was destroyed."))
         end
     end
 end
@@ -1354,7 +1354,7 @@ local function StartAuraLoop(player, instanceId, mapId, affixes, interval, tier)
                         duration = %d
                     WHERE run_id = %d
                 ]], now, duration, runData.run_id))
-                p:SendBroadcastMessage("[Mythic+] You left the dungeon. The run is over.")
+                p:SendBroadcastMessage("[Mythic+] " .. GetLocalizedText(p, "UI", "You left the dungeon. The run is over."))
                 local validPlayer = GetPlayerByGUID(guid)
                 if validPlayer and validPlayer:IsInWorld() then
                     SetEndOfRunUnitFlags(validPlayer)
@@ -1396,7 +1396,7 @@ local function StartAuraLoop(player, instanceId, mapId, affixes, interval, tier)
                                 DowngradeKeystoneOnFail(member, runData.tier)
                                 
                                 member:SendBroadcastMessage(string.format(
-                                    "[Mythic+] Time expired! Tier %d failed. You can continue in overtime for the chance of loot.",
+                                    "[Mythic+] " .. GetLocalizedText(member, "UI", "Time expired! Tier %d failed. You can continue in overtime for the chance of loot."),
                                     runData.tier
                                 ))
                             end
@@ -1422,13 +1422,13 @@ end
 
 function Pedestal_OnGossipHello(_, player, creature)
     if not player:HasItem(900100) then
-        player:SendBroadcastMessage("[Mythic+] You do not have a Mythic Keystone.")
+        player:SendBroadcastMessage("[Mythic+] " .. GetLocalizedText(player, "UI", "You do not have a Mythic Keystone."))
         player:GossipComplete()
         return
     end
 
     if not HasValidKeyForCurrentDungeon(player) then
-        player:SendBroadcastMessage("[Mythic+] Your keystone does not appear to fit.")
+        player:SendBroadcastMessage("[Mythic+] " .. GetLocalizedText(player, "UI", "Your keystone does not appear to fit."))
         player:GossipComplete()
         return
     end
@@ -1446,7 +1446,7 @@ end
 
 function Pedestal_OnGossipSelect(_, player, _, _, intid)
     if not HasValidKeyForCurrentDungeon(player) then
-        player:SendBroadcastMessage("[Mythic+] This keystone is not for this dungeon.")
+        player:SendBroadcastMessage("[Mythic+] " .. GetLocalizedText(player, "UI", "This keystone is not for this dungeon."))
         player:GossipComplete()
         return
     end
@@ -1458,14 +1458,14 @@ function Pedestal_OnGossipSelect(_, player, _, _, intid)
 
     if intid == 100 then
         if not player:HasItem(900100) then
-            player:SendBroadcastMessage("[Mythic+] You do not have a Mythic Keystone.")
+            player:SendBroadcastMessage("[Mythic+] " .. GetLocalizedText(player, "UI", "You do not have a Mythic Keystone."))
             player:GossipComplete()
             return
         end
 
         local map = player:GetMap()
         if not map or map:GetDifficulty() == 0 then
-            player:SendBroadcastMessage("[Mythic+] Keystones cannot be used in Normal mode dungeons.")
+            player:SendBroadcastMessage("[Mythic+] " .. GetLocalizedText(player, "UI", "Keystones cannot be used in Normal mode dungeons."))
             player:GossipComplete()
             return
         end
@@ -2046,8 +2046,8 @@ local function TryRewardMythicLoot(player, tier, upgradeLevel)
     end
 
     if upgradeLevel >= 2 then
-        local upgradeText = upgradeLevel == 2 and "+2 Performance" or "+3 Performance"
-        player:SendBroadcastMessage("[Mythic+] " .. upgradeText .. " - Enhanced loot chances applied!")
+        local upgradeText = upgradeLevel == 2 and GetLocalizedText(player, "UI", "+2 Performance") or GetLocalizedText(player, "UI", "+3 Performance")
+        player:SendBroadcastMessage("[Mythic+] " .. upgradeText .. " - " .. GetLocalizedText(player, "UI", "Enhanced loot chances applied!"))
     end
 end
 

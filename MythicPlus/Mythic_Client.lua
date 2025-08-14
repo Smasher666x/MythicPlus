@@ -178,14 +178,14 @@ local DUNGEON_ORDER = {
 }
 
 local AFFIXES = {
-    ["Enrage"] = { icon = "Interface\\Icons\\spell_nature_shamanrage", color = "|cffff0000", description = "Boosts physical damage and attack speed, making attacks more relentless." },
-    ["Rejuvenating"] = { icon = "Interface\\Icons\\ability_druid_empoweredrejuvination", color = "|cff00ff00", description = "Gradually restores health over time, keeping the creature sustained in battle." },
-    ["Turtling"] = { icon = "Interface\\Icons\\ability_warrior_shieldmastery", color = "|cffffff00", description = "Significantly reduces damage taken, increasing survivability." },
-    ["Shamanism"] = { icon = "Interface\\Icons\\spell_fire_totemofwrath", color = "|cffa335ee", description = "Enhances spell power, Strength, Agility, and melee speed. Also improves Fire resistance and critical strike chance." },
-    ["Magus"] = { icon = "Interface\\Icons\\ability_mage_hotstreak", color = "|cff3399ff", description = "Decreases magic damage received, strengthens armor and Frost resistance, and may slow attackers. Retaliates with Fire damage, increases critical strike effectiveness, and allows swift casting for certain Mage spells." },
-    ["Priest Empowered"] = { icon = "Interface\\Icons\\spell_holy_searinglightpriest", color = "|cffcccccc", description = "Fortifies stamina, absorbs incoming damage, and grants protection against Fear effects. Strengthens armor and spell power, with shadow magic restoring health for the caster and nearby allies." },
-    ["Demonism"] = { icon = "Interface\\Icons\\ability_warlock_demonicpower", color = "|cff8b0000", description = "Amplifies spell power, gains additional benefits from Spirit, regenerates health periodically, and harms nearby foes." },
-    ["Falling Stars"] = { icon = "Interface\\Icons\\ability_druid_starfall", color = "|cff66ccff", description = "Calls down celestial forces, bombarding enemies from above." },
+    ["Enrage"] = { icon = "Interface\\Icons\\spell_nature_shamanrage", color = "|cffff0000", description = function() return MythicGetText("UI", "Enrage Description") end },
+    ["Rejuvenating"] = { icon = "Interface\\Icons\\ability_druid_empoweredrejuvination", color = "|cff00ff00", description = function() return MythicGetText("UI", "Rejuvenating Description") end },
+    ["Turtling"] = { icon = "Interface\\Icons\\ability_warrior_shieldmastery", color = "|cffffff00", description = function() return MythicGetText("UI", "Turtling Description") end },
+    ["Shamanism"] = { icon = "Interface\\Icons\\spell_fire_totemofwrath", color = "|cffa335ee", description = function() return MythicGetText("UI", "Shamanism Description") end },
+    ["Magus"] = { icon = "Interface\\Icons\\ability_mage_hotstreak", color = "|cff3399ff", description = function() return MythicGetText("UI", "Magus Description") end },
+    ["Priest Empowered"] = { icon = "Interface\\Icons\\spell_holy_searinglightpriest", color = "|cffcccccc", description = function() return MythicGetText("UI", "Priest Empowered Description") end },
+    ["Demonism"] = { icon = "Interface\\Icons\\ability_warlock_demonicpower", color = "|cff8b0000", description = function() return MythicGetText("UI", "Demonism Description") end },
+    ["Falling Stars"] = { icon = "Interface\\Icons\\ability_druid_starfall", color = "|cff66ccff", description = function() return MythicGetText("UI", "Falling Stars Description") end },
 }
 
 function MythicHandlers.ReceiveMapNameAndTier(_, mapName, tier)
@@ -505,8 +505,12 @@ for i, name in ipairs(affixNames) do
     button:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         local color = AFFIXES[name].color or "|cffffffff"
-        GameTooltip:SetText(color .. name .. "|r")
-        GameTooltip:AddLine(AFFIXES[name].description or "", 1, 1, 1, true)
+        GameTooltip:SetText(color .. MythicGetText("UI", name) .. "|r")
+        local description = AFFIXES[name].description
+        if type(description) == "function" then
+            description = description()
+        end
+        GameTooltip:AddLine(description or "", 1, 1, 1, true)
         GameTooltip:Show()
     end)
 
@@ -939,7 +943,7 @@ function MythicHandlers.StartMythicTimerGUI(_, mapId, tier, duration, bossNames,
     if enemiesRequired > 0 then
         enemyLabel = timerFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         enemyLabel:SetPoint("TOPLEFT", goldenFrame, "BOTTOMLEFT", 20, 10 - #bossNames*16)
-        enemyLabel:SetText("0/1 Enemy Forces")
+        enemyLabel:SetText("0/1 " .. MythicGetText("UI", "Enemy Forces"))
         enemyLabel:SetTextColor(1, 0.82, 0)
         
         enemyProgressFrame = CreateFrame("StatusBar", nil, timerFrame)
@@ -1401,7 +1405,7 @@ function MythicHandlers.UpdateEnemyForces(_, current, required, percentage, comp
     ui.enemiesCurrent = current
     ui.enemiesRequired = required
     local completedText = completed and "1" or "0"
-    ui.enemyLabel:SetText(fmt("%s/1 Enemy Forces", completedText))
+    ui.enemyLabel:SetText(fmt("%s/1 %s", completedText, MythicGetText("UI", "Enemy Forces")))
     ui.enemyProgressFrame:SetValue(percentage)
     ui.enemyPercentText:SetText(fmt("%.0f%%", percentage))
     if completed then
