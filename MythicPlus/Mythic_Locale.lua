@@ -587,7 +587,7 @@ L.UI = {
         [3] = "Fallende Sterne",
         [4] = "流星",
         [5] = "流星",
-        [6] = "Estrellas fugaces",fno 
+        [6] = "Estrellas fugaces",
         [7] = "Estrellas fugaces",
         [8] = "Падающие звезды",
     },
