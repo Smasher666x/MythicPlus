@@ -2271,3 +2271,84 @@ function MythicHandlers.RequestLeaderboard(player)
     UpdateLeaderboardCache()
     AIO.Handle(player, "AIO_Mythic", "ReceiveLeaderboard", LeaderboardCache.topThree, LeaderboardCache.dungeonTop)
 end
+
+function MythicHandlers.RequestRunState(player)
+    local map = player:GetMap()
+    if not map then return end
+    
+    local mapId = map:GetMapId()
+    local instanceId = map:GetInstanceId()
+    
+    if not IsRunActive(instanceId) then 
+        AIO.Handle(player, "AIO_Mythic", "ClearRunState")
+        return 
+    end
+    
+    local runData = ActiveRunsCache[instanceId]
+    if not runData then 
+        AIO.Handle(player, "AIO_Mythic", "ClearRunState")
+        return 
+    end
+    
+    local bossData = MythicBosses[mapId]
+    if not bossData then 
+        AIO.Handle(player, "AIO_Mythic", "ClearRunState")
+        return 
+    end
+    
+    local now = os.time()
+    local elapsed = now - runData.start_time
+    local duration = bossData.timer or 900
+    local bossTracker = MYTHIC_BOSS_KILL_TRACKER[instanceId]
+    local enemyTracker = MYTHIC_ENEMY_FORCES_TRACKER[instanceId]
+    
+    local killedBosses = {}
+    if bossTracker then
+        for idx, entry in ipairs(bossData.bosses) do
+            local killed = true
+            for _, remaining in ipairs(bossTracker.remaining) do
+                if remaining == entry then
+                    killed = false
+                    break
+                end
+            end
+            if killed then
+                table.insert(killedBosses, idx)
+            end
+        end
+    end
+    
+    local enemyForces = {
+        current = 0,
+        required = bossData.enemies or 0,
+        percentage = 0,
+        completed = false
+    }
+    
+    if enemyTracker then
+        enemyForces.current = enemyTracker.current
+        enemyForces.required = enemyTracker.required
+        enemyForces.percentage = math.min((enemyTracker.current / enemyTracker.required) * 100, 100)
+        enemyForces.completed = enemyTracker.completed
+    end
+    
+    local cache = PlayerRatingCache[player:GetGUIDLow()]
+    local currentRating = cache and cache[mapId] or 0
+    local potentialGain = CalculateMythicRating(runData.tier, 0)
+    
+    AIO.Handle(player, "AIO_Mythic", "RestoreRunState", {
+        active = true,
+        mapId = mapId,
+        tier = runData.tier,
+        duration = duration,
+        elapsed = elapsed,
+        bossNames = GetLocalizedBossNames(player, mapId),
+        killedBosses = killedBosses,
+        potentialGain = potentialGain,
+        penalty = runData.deaths * penaltyPerDeath,
+        deaths = runData.deaths,
+        maxDeaths = (runData.tier == 1) and 6 or 4,
+        enemyForces = enemyForces,
+        overtime = runData.overtime_started or false
+    })
+end

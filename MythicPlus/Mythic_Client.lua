@@ -20,6 +20,30 @@ if AIO.AddAddon() then
     return
 end
 
+MythicPlusCharRunState = {
+    active = false,
+    mapId = nil,
+    tier = nil,
+    duration = nil,
+    elapsed = nil,
+    bossNames = {},
+    killedBosses = {},
+    potentialGain = 0,
+    penalty = 0,
+    bonus = 0,
+    deaths = 0,
+    maxDeaths = 0,
+    enemyForces = {
+        current = 0,
+        required = 0,
+        percentage = 0,
+        completed = false
+    },
+    saveTime = nil
+}
+
+AIO.AddSavedVarChar("MythicPlusCharRunState")
+
 local MythicHandlers = AIO.AddHandlers("AIO_Mythic", {})
 local lastKeystoneLink = nil
 local lastMapName = nil
@@ -157,18 +181,7 @@ local DUNGEONS = {
 AIO.Handle("AIO_Mythic", "RequestLocaleData", "Items")
 AIO.Handle("AIO_Mythic", "RequestLocaleData", "Dungeons")
 AIO.Handle("AIO_Mythic", "RequestLocaleData", "UI")
-
-local updateFrame = CreateFrame("Frame")
-updateFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-updateFrame:SetScript("OnEvent", function(self, event)
-    if event == "PLAYER_ENTERING_WORLD" then
-        C_Timer.After(1, function()
-            AIO.Handle("AIO_Mythic", "RequestLocaleData", "Items")
-            AIO.Handle("AIO_Mythic", "RequestLocaleData", "Dungeons")
-            AIO.Handle("AIO_Mythic", "RequestLocaleData", "UI")
-        end)
-    end
-end)
+AIO.Handle("AIO_Mythic", "RequestRunState")
 
 local DUNGEON_ORDER = {
     574, 575, 576, 578,
@@ -1427,5 +1440,88 @@ function MythicHandlers.ReceiveTotalPoints(_, totalPoints, dungeonScores)
                 button.nameLabel:SetText(MythicGetText("Dungeons", DUNGEONS[mapId].originalName))
             end
         end
+    end
+end
+
+function MythicHandlers.RestoreRunState(_, runState)
+    if not runState or not runState.active then
+        MythicPlusCharRunState = {
+            active = false,
+            mapId = nil,
+            tier = nil,
+            duration = nil,
+            elapsed = nil,
+            bossNames = {},
+            killedBosses = {},
+            potentialGain = 0,
+            penalty = 0,
+            bonus = 0,
+            deaths = 0,
+            maxDeaths = 0,
+            enemyForces = {
+                current = 0,
+                required = 0,
+                percentage = 0,
+                completed = false
+            },
+            saveTime = nil
+        }
+        return
+    end
+    
+    MythicPlusCharRunState = runState
+    MythicPlusCharRunState.saveTime = GetTime()
+    
+    MythicHandlers.StartMythicTimerGUI(nil, runState.mapId, runState.tier, runState.duration - runState.elapsed, runState.bossNames, runState.potentialGain, runState.enemyForces.required)
+    
+    if MythicBossTimerUI then
+        MythicBossTimerUI.deaths = runState.deaths
+        MythicBossTimerUI.penalty = runState.penalty
+        MythicBossTimerUI.maxDeaths = runState.maxDeaths
+        
+        MythicHandlers.UpdateMythicScore(nil, runState.penalty, runState.deaths)
+        
+        for _, bossIndex in ipairs(runState.killedBosses) do
+            MythicHandlers.MarkBossKilled(nil, runState.mapId, bossIndex)
+        end
+        
+        if runState.enemyForces then
+            MythicHandlers.UpdateEnemyForces(nil, runState.enemyForces.current, runState.enemyForces.required, runState.enemyForces.percentage, runState.enemyForces.completed)
+        end
+        
+        if runState.overtime then
+            MythicHandlers.StartOvertimeMode()
+        end
+    end
+end
+
+function MythicHandlers.ClearRunState()
+    MythicPlusCharRunState = {
+        active = false,
+        mapId = nil,
+        tier = nil,
+        duration = nil,
+        elapsed = nil,
+        bossNames = {},
+        killedBosses = {},
+        potentialGain = 0,
+        penalty = 0,
+        bonus = 0,
+        deaths = 0,
+        maxDeaths = 0,
+        enemyForces = {
+            current = 0,
+            required = 0,
+            percentage = 0,
+            completed = false
+        },
+        saveTime = nil
+    }
+end
+
+function MythicHandlers.StartOvertimeMode()
+    if MythicBossTimerUI and MythicBossTimerUI.timerText then
+        MythicBossTimerUI.timerText:SetText("|cffff0000OVERTIME|r")
+        MythicBossTimerUI.frame.stopped = true
     end
 end
