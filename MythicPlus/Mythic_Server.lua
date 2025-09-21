@@ -464,7 +464,17 @@ local WEEKLY_AFFIX_POOL = {
 local function GetCurrentMythicResetDate()
     local now = os.time()
     local t = os.date("*t", now)
+    -- wday: 1=Sunday, 2=Monday, 3=Tuesday, 4=Wednesday, 5=Thursday, 6=Friday, 7=Saturday
     local daysToSubtract = (t.wday - 4) % 7
+    if daysToSubtract < 0 then
+        daysToSubtract = daysToSubtract + 7
+    end
+    
+    -- If it's Wednesday but before 6 AM, go to previous Wednesday
+    if t.wday == 4 and t.hour < 6 then
+        daysToSubtract = daysToSubtract + 7
+    end
+    
     t.day = t.day - daysToSubtract
     t.hour = 6
     t.min = 0
@@ -655,7 +665,13 @@ local function GetCurrentVaultWeek()
     local t = os.date("*t", now)
     
     -- Find last Wednesday 8 AM
-    local daysToSubtract = (t.wday + 3) % 7
+    -- wday: 1=Sunday, 2=Monday, 3=Tuesday, 4=Wednesday, 5=Thursday, 6=Friday, 7=Saturday
+    local daysToSubtract = (t.wday - 4) % 7
+    if daysToSubtract < 0 then
+        daysToSubtract = daysToSubtract + 7
+    end
+    
+    -- If it's Wednesday but before 8 AM, go to previous Wednesday
     if t.wday == 4 and t.hour < 8 then
         daysToSubtract = daysToSubtract + 7
     end
@@ -984,13 +1000,14 @@ local function ScheduleVaultGeneration()
     local now = os.time()
     local t = os.date("*t", now)
     
-    local nextWednesday = os.time(t)
-    local daysUntilWednesday = (11 - t.wday) % 7
+    -- Calculate days until next Wednesday 8 AM
+    -- wday: 1=Sunday, 2=Monday, 3=Tuesday, 4=Wednesday, 5=Thursday, 6=Friday, 7=Saturday
+    local daysUntilWednesday = (4 - t.wday) % 7
     if daysUntilWednesday == 0 and t.hour >= 8 then
         daysUntilWednesday = 7
     end
     
-    nextWednesday = nextWednesday + (daysUntilWednesday * 24 * 60 * 60)
+    local nextWednesday = now + (daysUntilWednesday * 24 * 60 * 60)
     local wednesdayTable = os.date("*t", nextWednesday)
     wednesdayTable.hour = 8
     wednesdayTable.min = 0
@@ -2104,8 +2121,12 @@ function AwardMythicPoints(player, tier, duration, deaths, remainingTime)
         GetLocalizedText(player, "UI", "Rating: %d (+%d gained, -%d death penalty)"):format(newRating, gainedRating, deathPenalty)
     ))
 
-    if not PlayerHasAnyKeystone(player) then
-        local newTier = math.max(1, tier + upgradeLevel)
+    -- Handle keystone rewards based on player's current keystone status
+    local currentKeyData = PlayerKeysCache[guid]
+    
+    if not currentKeyData then
+        -- 1) If player has no keystone - give them a tier 1 keystone
+        local newTier = 1
         local newMapId = GetRandomMythicMapId()
         
         PlayerKeysCache[guid] = {mapId = newMapId, tier = newTier}
@@ -2120,6 +2141,71 @@ function AwardMythicPoints(player, tier, duration, deaths, remainingTime)
                 MythicHandlers.RequestMapNameAndTier(p)
             end
         end, 500, 1)
+    else
+        -- Player has a keystone - determine upgrade logic
+        local currentTier = currentKeyData.tier
+        local currentMapId = currentKeyData.mapId
+        
+        if currentTier < tier then
+            -- 2) If player's keystone is lower level than completed dungeon - upgrade by completion time
+            local newTier = currentTier + upgradeLevel
+            if newTier < 1 then newTier = 1 end
+            
+            PlayerKeysCache[guid] = {mapId = currentMapId, tier = newTier}
+            CharDBQuery(string.format("REPLACE INTO character_mythic_keys (guid, mapId, tier) VALUES (%d, %d, %d)", guid, currentMapId, newTier))
+            
+            player:AddItem(900100, 1)
+            player:SendBroadcastMessage(string.format("[Mythic+] %s", GetLocalizedText(player, "UI", "Your keystone has been upgraded to Tier %d!"):format(newTier)))
+
+            CreateLuaEvent(function()
+                local p = GetPlayerByGUID(guid)
+                if p then
+                    MythicHandlers.RequestMapNameAndTier(p)
+                end
+            end, 500, 1)
+        elseif currentTier == tier then
+            -- 3) If player's keystone is same level as completed dungeon - upgrade based on completion time
+            local newTier = tier + upgradeLevel
+            if newTier < 1 then newTier = 1 end
+            
+            PlayerKeysCache[guid] = {mapId = currentMapId, tier = newTier}
+            CharDBQuery(string.format("REPLACE INTO character_mythic_keys (guid, mapId, tier) VALUES (%d, %d, %d)", guid, currentMapId, newTier))
+            
+            player:AddItem(900100, 1)
+            player:SendBroadcastMessage(string.format("[Mythic+] %s", GetLocalizedText(player, "UI", "Your keystone has been upgraded to Tier %d!"):format(newTier)))
+
+            CreateLuaEvent(function()
+                local p = GetPlayerByGUID(guid)
+                if p then
+                    MythicHandlers.RequestMapNameAndTier(p)
+                end
+            end, 500, 1)
+        elseif currentTier > tier then
+            -- 4) If player's keystone is higher level than completed dungeon - check abuse protection
+            local tierDifference = currentTier - tier
+            
+            if tierDifference >= 3 then
+                -- If key is 3+ levels higher - no changes to prevent abuse
+                player:SendBroadcastMessage(string.format("[Mythic+] %s", GetLocalizedText(player, "UI", "Your keystone remains unchanged (Tier %d)."):format(currentTier)))
+            else
+                -- If key is 1-2 levels higher - upgrade to maximum possible (same as key opener would get)
+                local maxPossibleTier = tier + upgradeLevel
+                local newTier = math.max(currentTier, maxPossibleTier)
+                
+                PlayerKeysCache[guid] = {mapId = currentMapId, tier = newTier}
+                CharDBQuery(string.format("REPLACE INTO character_mythic_keys (guid, mapId, tier) VALUES (%d, %d, %d)", guid, currentMapId, newTier))
+                
+                player:AddItem(900100, 1)
+                player:SendBroadcastMessage(string.format("[Mythic+] %s", GetLocalizedText(player, "UI", "Your keystone has been upgraded to Tier %d!"):format(newTier)))
+
+                CreateLuaEvent(function()
+                    local p = GetPlayerByGUID(guid)
+                    if p then
+                        MythicHandlers.RequestMapNameAndTier(p)
+                    end
+                end, 500, 1)
+            end
+        end
     end
 
     TryRewardMythicLoot(player, tier, upgradeLevel)
@@ -2222,6 +2308,169 @@ local function OnPlayerLogout(event, player)
         SavePlayerRatingCache(guid)
     end
 end
+
+
+-- Admin command for vault loot generation
+local function VaultCommand(event, player, command, chatHandler)
+    local cmd, args = command:match("^([^%s]+)%s*(.*)$")
+    
+    if cmd == "mythicvault" or cmd == "mvault" then
+        if not player:IsGM() then
+            player:SendBroadcastMessage("[Mythic+] Only administrators can use this command.")
+            return false
+        end
+        
+        -- Parse arguments for force flag and player name
+        local forceFlag = false
+        local targetName = nil
+        
+        -- Check for --force flag
+        if args:match("--force") then
+            forceFlag = true
+            args = args:gsub("%s*--force%s*", ""):gsub("^%s*(.-)%s*$", "%1")
+        end
+        
+        -- Extract player name if provided
+        if args and args ~= "" then
+            targetName = args:match("^%s*(%S+)")
+        end
+        
+        local targetPlayer = nil
+        if targetName then
+            -- Find target player by name
+            local players = GetPlayersInWorld()
+            for _, p in ipairs(players) do
+                if p:GetName():lower() == targetName:lower() then
+                    targetPlayer = p
+                    break
+                end
+            end
+            
+            if not targetPlayer then
+                player:SendBroadcastMessage("[Mythic+] Player '" .. targetName .. "' not found online.")
+                return false
+            end
+        end
+        
+        if targetPlayer then
+            -- Generate for specific player
+            local guid = targetPlayer:GetGUIDLow()
+            if not PlayerVaultCache[guid] then
+                LoadPlayerVaultCache(guid)
+            end
+            
+            local cache = PlayerVaultCache[guid]
+            if cache.successful_runs > 0 then
+                local canGenerate = false
+                local actionText = ""
+                
+                if forceFlag then
+                    -- Force regeneration by resetting flags
+                    cache.items_generated = false
+                    cache.has_collected = false
+                    cache.can_collect = false
+                    canGenerate = true
+                    actionText = "force-generated"
+                elseif not cache.items_generated then
+                    canGenerate = true
+                    actionText = "generated"
+                else
+                    player:SendBroadcastMessage("[Mythic+] Player '" .. targetPlayer:GetName() .. "' already has loot generated. Use --force to regenerate.")
+                    return false
+                end
+                
+                if canGenerate then
+                    GenerateVaultItemsForPlayer(targetPlayer)
+                    player:SendBroadcastMessage("[Mythic+] Vault loot " .. actionText .. " for player: " .. targetPlayer:GetName())
+                    targetPlayer:SendBroadcastMessage("[Mythic+] Your vault loot has been " .. actionText .. " by an administrator.")
+                end
+            else
+                player:SendBroadcastMessage("[Mythic+] Player '" .. targetPlayer:GetName() .. "' has no successful runs.")
+            end
+        else
+            -- Generate for all players with successful runs
+            local processedCount = 0
+            local players = GetPlayersInWorld()
+            
+            for _, p in ipairs(players) do
+                local guid = p:GetGUIDLow()
+                if not PlayerVaultCache[guid] then
+                    LoadPlayerVaultCache(guid)
+                end
+                
+                local cache = PlayerVaultCache[guid]
+                if cache.successful_runs > 0 then
+                    local canGenerate = false
+                    
+                    if forceFlag then
+                        -- Force regeneration by resetting flags
+                        cache.items_generated = false
+                        cache.has_collected = false
+                        cache.can_collect = false
+                        canGenerate = true
+                    elseif not cache.items_generated then
+                        canGenerate = true
+                    end
+                    
+                    if canGenerate then
+                        GenerateVaultItemsForPlayer(p)
+                        processedCount = processedCount + 1
+                    end
+                end
+            end
+            
+            local actionText = forceFlag and "force-generated" or "generated"
+            player:SendBroadcastMessage("[Mythic+] Vault loot " .. actionText .. " for " .. processedCount .. " online players.")
+            
+            -- Also process offline players
+            local currentWeek = GetCurrentVaultWeek()
+            local queryCondition = forceFlag and "successful_runs > 0" or "successful_runs > 0 AND NOT items_generated"
+            local query = CharDBQuery(string.format([[
+                SELECT DISTINCT guid FROM character_mythic_vault 
+                WHERE week_start = '%s' AND %s
+            ]], currentWeek, queryCondition))
+            
+            local offlineCount = 0
+            if query then
+                repeat
+                    local guid = query:GetUInt32(0)
+                    local player = GetPlayerByGUID(guid)
+                    
+                    if not player then
+                        -- Player is offline, prepare loot for them
+                        if not PlayerVaultCache[guid] then
+                            LoadPlayerVaultCache(guid)
+                        end
+                        
+                        local cache = PlayerVaultCache[guid]
+                        if cache then
+                            if forceFlag then
+                                cache.items_generated = false
+                                cache.has_collected = false
+                            end
+                            cache.can_collect = true
+                            SavePlayerVaultCache(guid)
+                            offlineCount = offlineCount + 1
+                        end
+                    end
+                until not query:NextRow()
+            end
+            
+            if offlineCount > 0 then
+                local offlineActionText = forceFlag and "force-prepared" or "prepared"
+                player:SendBroadcastMessage("[Mythic+] Vault loot " .. offlineActionText .. " for " .. offlineCount .. " offline players.")
+            end
+        end
+        
+        return false -- Prevent default command processing
+    end
+    
+    return true
+end
+
+RegisterPlayerEvent(42, VaultCommand)
+
+
 
 RegisterCreatureGossipEvent(PEDESTAL_NPC_ENTRY, 1, Pedestal_OnGossipHello)
 RegisterCreatureGossipEvent(PEDESTAL_NPC_ENTRY, 2, Pedestal_OnGossipSelect)
@@ -2352,3 +2601,7 @@ function MythicHandlers.RequestRunState(player)
         overtime = runData.overtime_started or false
     })
 end
+
+print("[Mythic+] Vault admin commands registered:")
+print("[Mythic+]   .mythicvault / .mvault [player] [--force] - Generate vault loot for players")
+print("[Mythic+]     Use --force flag to overwrite existing loot")
