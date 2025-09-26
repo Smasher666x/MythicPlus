@@ -1089,8 +1089,19 @@ local function LeaveDungeonMap(event, player)
     end
 end
 
-local function GetRandomMythicMapId()
+local function GetRandomMythicMapId(excludeMapId)
     local ids = {574, 575, 576, 578, 595, 599, 600, 601, 602, 604, 608, 619, 632, 650, 658, 668}
+    if excludeMapId then
+        local filtered = {}
+        for _, id in ipairs(ids) do
+            if id ~= excludeMapId then
+                table.insert(filtered, id)
+            end
+        end
+        if #filtered > 0 then
+            return filtered[math.random(1, #filtered)]
+        end
+    end
     return ids[math.random(1, #ids)]
 end
 
@@ -1537,6 +1548,20 @@ function Pedestal_OnGossipSelect(_, player, _, _, intid)
         
         local runIdQuery = CharDBQuery("SELECT LAST_INSERT_ID()")
         local runId = runIdQuery and runIdQuery:GetUInt32(0) or 0
+
+        local initialKeys = {}
+        for _, member in ipairs(members) do
+            if member:IsInWorld() and member:GetMapId() == mapId then
+                local memberGuid = member:GetGUIDLow()
+                local keyData = PlayerKeysCache[memberGuid]
+                if keyData then
+                    initialKeys[memberGuid] = {
+                        mapId = keyData.mapId,
+                        tier = keyData.tier
+                    }
+                end
+            end
+        end
         
         ActiveRunsCache[instanceId] = {
             guid = guid,
@@ -1545,7 +1570,8 @@ function Pedestal_OnGossipSelect(_, player, _, _, intid)
             start_time = nil,
             deaths = 0,
             run_id = runId,
-            members = {}
+            members = {},
+            initial_keys = initialKeys
         }
         
         for _, member in ipairs(members) do
@@ -2122,12 +2148,16 @@ function AwardMythicPoints(player, tier, duration, deaths, remainingTime)
     ))
 
     -- Handle keystone rewards based on player's current keystone status
+    local runData = ActiveRunsCache[instanceId]
     local currentKeyData = PlayerKeysCache[guid]
+    if not currentKeyData and runData and runData.initial_keys then
+        currentKeyData = runData.initial_keys[guid]
+    end
     
     if not currentKeyData then
         -- 1) If player has no keystone - give them a tier 1 keystone
         local newTier = 1
-        local newMapId = GetRandomMythicMapId()
+        local newMapId = GetRandomMythicMapId(mapId)
         
         PlayerKeysCache[guid] = {mapId = newMapId, tier = newTier}
         CharDBQuery(string.format("REPLACE INTO character_mythic_keys (guid, mapId, tier) VALUES (%d, %d, %d)", guid, newMapId, newTier))
@@ -2150,9 +2180,10 @@ function AwardMythicPoints(player, tier, duration, deaths, remainingTime)
             -- 2) If player's keystone is lower level than completed dungeon - upgrade by completion time
             local newTier = currentTier + upgradeLevel
             if newTier < 1 then newTier = 1 end
-            
-            PlayerKeysCache[guid] = {mapId = currentMapId, tier = newTier}
-            CharDBQuery(string.format("REPLACE INTO character_mythic_keys (guid, mapId, tier) VALUES (%d, %d, %d)", guid, currentMapId, newTier))
+
+            local newMapId = GetRandomMythicMapId(mapId)
+            PlayerKeysCache[guid] = {mapId = newMapId, tier = newTier}
+            CharDBQuery(string.format("REPLACE INTO character_mythic_keys (guid, mapId, tier) VALUES (%d, %d, %d)", guid, newMapId, newTier))
             
             player:AddItem(900100, 1)
             player:SendBroadcastMessage(string.format("[Mythic+] %s", GetLocalizedText(player, "UI", "Your keystone has been upgraded to Tier %d!"):format(newTier)))
@@ -2167,9 +2198,10 @@ function AwardMythicPoints(player, tier, duration, deaths, remainingTime)
             -- 3) If player's keystone is same level as completed dungeon - upgrade based on completion time
             local newTier = tier + upgradeLevel
             if newTier < 1 then newTier = 1 end
-            
-            PlayerKeysCache[guid] = {mapId = currentMapId, tier = newTier}
-            CharDBQuery(string.format("REPLACE INTO character_mythic_keys (guid, mapId, tier) VALUES (%d, %d, %d)", guid, currentMapId, newTier))
+
+            local newMapId = GetRandomMythicMapId(mapId)
+            PlayerKeysCache[guid] = {mapId = newMapId, tier = newTier}
+            CharDBQuery(string.format("REPLACE INTO character_mythic_keys (guid, mapId, tier) VALUES (%d, %d, %d)", guid, newMapId, newTier))
             
             player:AddItem(900100, 1)
             player:SendBroadcastMessage(string.format("[Mythic+] %s", GetLocalizedText(player, "UI", "Your keystone has been upgraded to Tier %d!"):format(newTier)))
@@ -2191,9 +2223,15 @@ function AwardMythicPoints(player, tier, duration, deaths, remainingTime)
                 -- If key is 1-2 levels higher - upgrade to maximum possible (same as key opener would get)
                 local maxPossibleTier = tier + upgradeLevel
                 local newTier = math.max(currentTier, maxPossibleTier)
+                local newMapId
+                if newTier > currentTier then
+                    newMapId = GetRandomMythicMapId(mapId)
+                else
+                    newMapId = currentMapId
+                end
                 
-                PlayerKeysCache[guid] = {mapId = currentMapId, tier = newTier}
-                CharDBQuery(string.format("REPLACE INTO character_mythic_keys (guid, mapId, tier) VALUES (%d, %d, %d)", guid, currentMapId, newTier))
+                PlayerKeysCache[guid] = {mapId = newMapId, tier = newTier}
+                CharDBQuery(string.format("REPLACE INTO character_mythic_keys (guid, mapId, tier) VALUES (%d, %d, %d)", guid, newMapId, newTier))
                 
                 player:AddItem(900100, 1)
                 player:SendBroadcastMessage(string.format("[Mythic+] %s", GetLocalizedText(player, "UI", "Your keystone has been upgraded to Tier %d!"):format(newTier)))
